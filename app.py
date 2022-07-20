@@ -8,96 +8,100 @@ from math import factorial as f
 from datetime import timedelta
 from streamlit import session_state
 import matplotlib.pyplot as plt
+import json
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
 st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
-st.title('combinatoire et temps de calcul')
-with st.expander("hypotheses de calcul ", expanded=True):
-    with open("assets/Combi_notes.md", 'r') as file:    
-        TEXT = file.read()    
-    st.markdown(TEXT)
 
-d0 = {'Slots' : 3,'Capteurs' : 2, 'Elements' : 1}
-d = d0.copy()
 
-for i, (k,v) in enumerate(d.items()):
-    d[k] = int(st.sidebar.number_input(k,min_value = v))
+with open('VALEO_1.tmj', 'r') as f:
+  data = json.load(f)
+  
+dfs = pd.DataFrame(data['layers'][1]['objects']).drop(columns= ['rotation','width','height','visible','gid']).rename(columns = {'class' : 'Class', 'name' : 'Name'})
+dfs.x = (dfs.x/16).astype(int)
+dfs.y = (dfs.y/16).astype(int) - 1
+dfs['Color'] = dfs['Class'].map({'C':10,'EV':20,'TP':30})
 
-k = d['Slots'] * d['Elements']
-n = d['Capteurs']
-# d['Combinaison'] = int(f(n)/f(n-k))
-a = f(n + k-1)
-b = f(n) * f(k-1)
-COMBINAISON = int(a/b)
-d['Combinaison'] = COMBINAISON
-d['Comb_C'] = d['Slots']**d['Capteurs']
-Nslot = d['Slots']
-r = 2
-CombMaxSlot2 = [f(Nslot)/(f(l) * f(Nslot-l) ) for l in range(Nslot)]
-CombMaxSlot2 = sum(CombMaxSlot2)
 
-d['Comb_S'] = CombMaxSlot2 #f(Nslot)/(f(r) * f(Nslot-r))
-d['Comb'] = d['Comb_C'] * d['Comb_S']
-d['Time'] = str(timedelta(seconds=int(d['Comb']*0.001)))
-# print(Values)
-# print(d, session_state['Val'])
-if st.button('Reset Values'):
-    st.balloons()
-    del session_state['Val']
-if 'Val' not in session_state:
-    session_state['Val'] = [d]
+dfline  = pd.DataFrame(data['layers'][2]['objects']).drop(columns=['rotation','width','name','height','visible']).rename(columns = {'class' : 'Class'})
 
-else : 
-    session_state['Val'].append(d)
+for idx, row in dfline.iterrows():
+    properties = row.properties
+    dfline.loc[idx, ['end','long','start']] = [d['value'] for d in properties]    
+    polyline = row.polyline
+    x = row.x
+    y = row.y
+    polyline = [(p['x'] + x, p['y'] + y) for p in polyline]
+    dfline.at[idx , 'polyline'] = polyline
+dfline.start = pd.to_numeric(dfline.start)
+dfline.end = pd.to_numeric(dfline.end)
+dfline = dfline.drop(columns= ['properties','x','y'])
 
-# st.write(session_state['Val'])
+D = dfs.Class.value_counts().to_dict()
+R = np.random.randint(0,D['EV'],D['C'])
 
-df = pd.DataFrame(session_state['Val']).sort_index(ascending= False)
-c1, c2 = st.columns([0.7,0.3])
-c2.image("assets/img_patter.png", use_column_width=True)
-c1._legacy_dataframe(df, height= 1000)
-# st.write('COMBINAISON = {:,.0f}   ;    TIME = {}'.format(COMBINAISON, TIME))
 
-# st.title('Hello Networkx')
-# st.markdown('Zachary´s Karate Club Graph')
+dfline['Select'] = False
+dfs['Connect'] = 0
+dfs.loc[dfs.Class == 'C', 'Connect']= 1
+for i in range(D['C']):
+    j = R[i]
+    mask = (dfline.Class == 'C-E') & (dfline.start == i) & (dfline.end == j)
+    # print(i,j, mask.sum())
+    dfline.loc[mask, 'Select'] = True 
+    
+    mask = (dfs.Class == 'EV') & (dfs.Name == str(j))
+    dfs.loc[mask, 'Connect'] +=  + 1
+    
+for i in np.unique(R):
+    j = np.random.randint(0,D['TP'])
+    mask = (dfline.Class == 'P-E') & (dfline.start == j) & (dfline.end == i)
+    # print(i,j, mask.sum())
+    dfline.loc[mask, 'Select'] = True
+    
+    mask = (dfs.Class == 'TP') & (dfs.Name == str(j))
+    dfs.loc[mask, 'Connect'] +=  + 1
+    
+c1, c2 = st.columns([0.3,0.7])      
+if c1.checkbox('ALL') : 
+    dfline['Select'] = True
+    dfs['Connect'] = 1
+    
+if c2.button('RANDOMIZE') : 
+    pass
+    
+    
+ 
+c2._legacy_dataframe(dfline)  
+c2._legacy_dataframe(dfs) 
 
-# G = nx.karate_club_graph()
-# L=["hello", "world", "how", "are", "you"]
-# G=nx.complete_graph(len(L))
-# nx.relabel_nodes(G,dict(enumerate(L)), copy = False)
 
-# fig, ax = plt.subplots()
-# pos = nx.kamada_kawai_layout(G)
-# nx.draw(G,pos, with_labels=True)
-# st.pyplot(fig)
 
-A = pd.read_excel('pattern.xlsx',header = None).values
+N = data['height']
+A0 = data['layers'][0]['data']
+A0 = np.array(A0).reshape(10,7)
+pas = 16
+unique = np.unique(A0)
+A0[A0 == unique[0]] = 0
+A0[A0 == unique[1]] = 1
+for idx, row in dfs.iterrows():
+    if row.Connect > 0:
+        A0[row.y, row.x] = row.Color + int(row.Name)
+        
+A = np.kron(A0, np.ones((16,16), dtype=int))
+fig, ax = plt.subplots(figsize = (10,10))
+ax.imshow(A)
+for idx, row in dfline.iterrows():
+    if row.Select: 
+        p = np.array(row.polyline)
+        f = ax.plot(p[:,0],p[:,1],'k')
 
-A = np.flip(A.T, axis=0)
-
-S = list(zip(*np.where(A==1)))
-C = tuple(zip(*np.where(A==2)))
-PosSlots = ['S'+ str(i) for i in range(len(S))]
-PosSlots = dict(zip(PosSlots,S))
-
-PosCapt = ['C'+ str(i) for i in range(len(C))]
-PosCapt = dict(zip(PosCapt,C))
-
-PosTotal = PosSlots.copy()
-PosTotal.update(PosCapt)
-comb = list(itertools.combinations(list(PosTotal.keys()),2))
-dist = {}
-for edge in comb:
-    x1,x2 = edge
-    dist[edge] = round(math.dist(PosTotal[x1],PosTotal[x2]),2)
-G = nx.Graph()
-G.add_nodes_from([(node, {'pos': v}) for (node, v) in PosTotal.items()])
-# G.nodes(data=True)
-for (u,v),d in dist.items():
-    G.add_edge(u, v, dist=d)
-c1, c2 = st.columns([0.7,0.3])
-fig, ax = plt.subplots(figsize = (5,7))
-# nx.draw(G,  with_labels=True)
-ax.imshow(A.T)
-nx.draw(G, nx.get_node_attributes(G, 'pos'), with_labels=True, node_size=2000,  ax=ax)
-c2.pyplot(fig)
+style = dict(size=10, color='black') 
+for idx, row in dfs.iterrows():
+    if row.Connect > 0:
+        x = row.x*16
+        y = row.y*16
+        text = row.Class + str(row.Name)
+        f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
+        
+c1.pyplot(fig)
