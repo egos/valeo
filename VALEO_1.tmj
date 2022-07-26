@@ -1,18 +1,26 @@
 { "compressionlevel":-1,
+ "editorsettings":
+    {
+     "export":
+        {
+         "format":"json",
+         "target":"..\/..\/JV\/Tiled\/examples\/VALEO_1.tmj"
+        }
+    },
  "height":10,
  "infinite":false,
  "layers":[
         {
-         "data":[214, 214, 214, 214, 214, 214, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 216, 216, 216, 216, 216, 214,
-            214, 214, 214, 214, 214, 214, 214],
+         "data":[22, 22, 22, 22, 22, 22, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 24, 24, 24, 24, 24, 22,
+            22, 22, 22, 22, 22, 22, 22],
          "height":10,
          "id":3,
          "name":"Calque de Tuiles 1",
@@ -30,7 +38,7 @@
          "objects":[
                 {
                  "class":"C",
-                 "gid":264,
+                 "gid":72,
                  "height":16,
                  "id":41,
                  "name":"3",
@@ -42,7 +50,7 @@
                 }, 
                 {
                  "class":"C",
-                 "gid":264,
+                 "gid":72,
                  "height":16,
                  "id":38,
                  "name":"2",
@@ -54,7 +62,7 @@
                 }, 
                 {
                  "class":"C",
-                 "gid":264,
+                 "gid":72,
                  "height":16,
                  "id":40,
                  "name":"1",
@@ -66,7 +74,7 @@
                 }, 
                 {
                  "class":"C",
-                 "gid":264,
+                 "gid":72,
                  "height":16,
                  "id":39,
                  "name":"0",
@@ -77,8 +85,8 @@
                  "y":16
                 }, 
                 {
-                 "class":"EV",
-                 "gid":235,
+                 "class":"E",
+                 "gid":43,
                  "height":16,
                  "id":42,
                  "name":"1",
@@ -89,8 +97,8 @@
                  "y":48
                 }, 
                 {
-                 "class":"EV",
-                 "gid":235,
+                 "class":"E",
+                 "gid":43,
                  "height":16,
                  "id":43,
                  "name":"0",
@@ -101,8 +109,8 @@
                  "y":128
                 }, 
                 {
-                 "class":"TP",
-                 "gid":238,
+                 "class":"P",
+                 "gid":46,
                  "height":16,
                  "id":44,
                  "name":"1",
@@ -114,8 +122,8 @@
                 },
             
                 {
-                 "class":"TP",
-                 "gid":238,
+                 "class":"P",
+                 "gid":46,
                  "height":16,
                  "id":45,
                  "name":"0",
@@ -143,7 +151,7 @@
          "name":"lines",
          "objects":[
                 {
-                 "class":"P-E",
+                 "class":"E-P",
                  "height":0,
                  "id":6,
                  "name":"",
@@ -179,7 +187,7 @@
                  "y":120
                 }, 
                 {
-                 "class":"P-E",
+                 "class":"E-P",
                  "height":0,
                  "id":7,
                  "name":"",
@@ -196,7 +204,7 @@
                         {
                          "name":"end",
                          "type":"string",
-                         "value":"0"
+                         "value":"1"
                         }, 
                         {
                          "name":"long",
@@ -206,7 +214,7 @@
                         {
                          "name":"start",
                          "type":"string",
-                         "value":"1"
+                         "value":"0"
                         }],
                  "rotation":0,
                  "visible":true,
@@ -215,7 +223,7 @@
                  "y":44
                 }, 
                 {
-                 "class":"P-E",
+                 "class":"E-P",
                  "height":0,
                  "id":8,
                  "name":"",
@@ -251,7 +259,7 @@
                  "y":40
                 }, 
                 {
-                 "class":"P-E",
+                 "class":"E-P",
                  "height":0,
                  "id":12,
                  "name":"",
@@ -276,7 +284,7 @@
                         {
                          "name":"end",
                          "type":"string",
-                         "value":"1"
+                         "value":"0"
                         }, 
                         {
                          "name":"long",
@@ -286,7 +294,7 @@
                         {
                          "name":"start",
                          "type":"string",
-                         "value":"0"
+                         "value":"1"
                         }],
                  "rotation":0,
                  "visible":true,
@@ -658,11 +666,7 @@
  "tilesets":[
         {
          "firstgid":1,
-         "source":"tmw_desert_spacing.tsx"
-        }, 
-        {
-         "firstgid":193,
-         "source":"MASTER TM - Basic.tsx"
+         "source":"..\/..\/JV\/Tiled\/examples\/MASTER TM - Basic.tsx"
         }],
  "tilewidth":16,
  "type":"map",
