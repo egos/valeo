@@ -18,7 +18,6 @@ from utils import *
 st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
 
-
 data, dfs, dfline , df1 = load_data(10, time.ctime())
 
 
@@ -72,12 +71,13 @@ if c1.button('RUN'):
     session_state['df1'] = df1
     session_state['Epoch'] = Epoch
 
-st._legacy_dataframe(df1.drop(columns = ['ID_CtoE','ID_EtoP']))
+# st._legacy_dataframe(df1.drop(columns = ['ID_CtoE','ID_EtoP']))
+st._legacy_dataframe(df1)
 ListSelectbox = df1.index
 index = st.selectbox('individu',ListSelectbox)
 row = df1.loc[index]
 
-# print(row)
+print(row)
 # st._legacy_dataframe(row.to_frame().T)
 ElemsList = ['Clist','Elist','Plist']
 Elems = ['C','E','P']
@@ -90,14 +90,16 @@ for n in range(3):
 dflineSelect = dfline[dfline.ID.isin(ID_CtoE + ID_EtoP)].copy()
 dfsSelect = dfs[dfs.ID.isin(IDSelects)].copy()
 
-c1, c2 = st.columns([0.3,0.7])      
+c1, c2, c3 = st.columns([0.3,0.3,0.4])      
 if c2.checkbox('ALL combinaison') : 
     dflineSelect = dfline.copy()
     dfsSelect = dfs.copy()
 
 fig = plot_(data,dflineSelect, dfsSelect)
+
      
-c2._legacy_dataframe(dflineSelect)  
-c2._legacy_dataframe(dfsSelect) 
+c3.table(dflineSelect.astype('string').drop(columns = ['polyline']))  
+c3.table(dfsSelect.astype('string'))
+c2.table(row.astype('string'))
        
 c1.pyplot(fig)

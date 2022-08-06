@@ -12,12 +12,12 @@ import json
 import collections
 import copy
 
-@st.cache(allow_output_mutation=True)
+# @st.cache(allow_output_mutation=True)
 def load_data(Size, time):
     return load_data_brut(Size)
 
 def load_data_brut(Size):
-    with open('VALEO_1.tmj', 'r') as f:
+    with open('VALEO_full.tmj', 'r') as f:
       data = json.load(f)
 
     dfs = pd.DataFrame(data['layers'][1]['objects']).drop(columns= ['rotation','width','height','visible','gid']).rename(columns = {'class' : 'Class', 'name' : 'Name'})
@@ -31,10 +31,10 @@ def load_data_brut(Size):
     dfline  = pd.DataFrame(data['layers'][2]['objects']).drop(columns=['rotation','width','name','height','visible']).rename(columns = {'class' : 'Class'})
     for idx, row in dfline.iterrows():
         properties = row.properties
+        # properties = properties[:0] + properties[-2:]
         dfline.loc[idx, ['end','long','start']] = [d['value'] for d in properties]    
         polyline = row.polyline
-        x = row.x
-        y = row.y
+        x,y = row.x,row.y
         polyline = [(p['x'] + x, p['y'] + y) for p in polyline]
         p = np.array(polyline)
         dfline.at[idx , 'polyline'] = p   
@@ -43,13 +43,16 @@ def load_data_brut(Size):
     dfline.end = pd.to_numeric(dfline.end)
     dfline.dist = dfline.dist.astype(int)
     dfline = dfline.drop(columns= ['properties','x','y'])
-    dfline['ID'] = dfline.Class + dfline.start.astype(str) + dfline.end.astype(str)
+    t = dfline.Class.str.split('-')
+    dfline['ID'] = t.str[0] + dfline.start.astype(str) + '-' + t.str[1] + dfline.end.astype(str)
+    # dfline['ID'] = dfline.Class + dfline.start.astype(str) + dfline.end.astype(str)
 
     L = []
     D = dfs.Class.value_counts().to_dict()
+    Clist = dfs[dfs.Class =='C'].Name.sort_values().unique().tolist()
 
     for n in range(Size): 
-        Clist = list(range(D['C']))
+        # Clist = list(range(D['C']))        
 
         CtoE = np.random.randint(0,D['E'],D['C'])
         Econnect = dict(collections.Counter(CtoE))
@@ -59,10 +62,11 @@ def load_data_brut(Size):
         EtoP = np.random.randint(0,D['P'],Ecount)
         Pconnect = dict(collections.Counter(EtoP))
         Plist = sorted(Pconnect)
-        Pcount = len(Plist)
+        Pcount = len(Plist)       
+        
 
-        ID_CtoE = ['C-E{}{}'.format(i, CtoE[i]) for i in Clist]
-        ID_EtoP = ['E-P{}{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
+        ID_CtoE = ['C{}-E{}'.format(C, CtoE[i]) for i, C in enumerate(Clist)]
+        ID_EtoP = ['E{}-P{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
 
         dist = dfline.loc[dfline.ID.isin(ID_CtoE + ID_EtoP), 'dist'].sum()  
 
@@ -102,9 +106,10 @@ def plot_(data,dflineSelect, dfsSelect):
         f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
     return fig
 
-def indiv_verif(row,NewCtoE,dfs, dfline): 
+def indiv_verif(row, NewCtoE, dfs, dfline): 
     D = dfs.Class.value_counts().to_dict()
     Clist = list(range(D['C']))
+    Clist = dfs[dfs.Class =='C'].Name.sort_values().unique().tolist()
     
     CtoE = NewCtoE
     Econnect = dict(collections.Counter(CtoE))
@@ -116,17 +121,20 @@ def indiv_verif(row,NewCtoE,dfs, dfline):
         y = np.random.randint(0,D['P'],Ecount - row.Ecount)
         EtoP = np.append(x, y)
     elif Ecount < row.Ecount:
-        EtoP = np.random.choice(row.EtoP,row.Ecount - Ecount)
-        print(EtoP)
+        # print(Elist,'avant',row.EtoP,row.Ecount, Ecount)
+        EtoP = np.random.choice(row.EtoP,Ecount)
+        # print("Ecount",EtoP)
     else : 
         EtoP = row.EtoP
-
+    # print(Elist,'apres',EtoP,row.Ecount, Ecount)
     Pconnect = dict(collections.Counter(EtoP))
     Plist = sorted(Pconnect)
     Pcount = len(Plist)    
 
-    ID_CtoE = ['C-E{}{}'.format(i, CtoE[i]) for i in Clist]
-    ID_EtoP = ['E-P{}{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
+    # ID_CtoE = ['C-E{}{}'.format(i, CtoE[i]) for i in Clist]
+    # ID_EtoP = ['E-P{}{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
+    ID_CtoE = ['C{}-E{}'.format(C, CtoE[i]) for i, C in enumerate(Clist)]
+    ID_EtoP = ['E{}-P{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
 
     dist = dfline.loc[dfline.ID.isin(ID_CtoE + ID_EtoP), 'dist'].sum()  
     l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, ID_CtoE,ID_EtoP,dist]
@@ -142,17 +150,13 @@ def Reprodution(dfx,dfs, dfline):
         if len(index) > 1:    
             idx = np.random.choice(index)
         elif len(index) ==1:
-            idx = index            
-#         print(i1,i2,c1, c2,m, idx)    
+            idx = index             
         c1[idx] , c2[idx] = c2[idx] , c1[idx]
         NewCtoE = c1 , c2
-#         print(NewCtoE)
         L = []
 
         for i in range(2):
             row = dfx.iloc[i]
-#             print(row.to_list())
             l = indiv_verif(row,NewCtoE[i],dfs, dfline) 
-#             print(l) 
             L.append(l)
         return L
