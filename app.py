@@ -17,77 +17,76 @@ from utils import *
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
 st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
-
-data, dfs, dfline , df1 = load_data(10, time.ctime())
-
-
-if 'df1' not in session_state:
-
-    df1['Epoch'] = df1.index
-    session_state['df1'] = df1
-else :
-    df1 = session_state['df1']
-
-if 'Epoch' not in session_state:
-    Epoch = df1.index.max()+1
-    session_state['Epoch'] = Epoch
+file = 'VALEO_full.tmj'
+Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
+pop = 100
+    
+if 'algo' not in session_state: 
+    algo = load_data_brut(file)
+    df1 = indiv_init(algo, pop)
+    session_state['algo'] = algo
 else : 
-    Epoch = session_state['Epoch']
-
+    algo = session_state['algo']
+    
+      
 c1,c2 = st.columns(2)
 
 if c2.button('RESET'):
-    data, dfs, dfline , df1 = load_data(10, time.ctime())
-    df1['Epoch'] = df1.index
-    session_state['df1'] = df1
-    Epoch = df1.index.max()+1
-    session_state['Epoch'] = Epoch
-    
-    
-if c1.button('RUN'):
-    L = []      
-    List = df1[:7].index.values
-    np.random.shuffle(List)
-    print(List)
-    for n in range(3):
-        print(n)
-        i1 = List[n*2]
-        i2 = List[n*2 + 1]
-        dfx = df1.loc[[i1,i2]].copy()
-        L2 = Reprodution(dfx,dfs, dfline)
-        if L2:
-            for l in L2:
-                l.append(Epoch)
-                l.append(dfx.Epoch.tolist())
-                Epoch+= 1
-                L.append(l)
+    algo = load_data_brut(file)
+    df1 = indiv_init(algo, pop)
+    session_state['algo'] = algo
         
-    col = ['Clist', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'ID_CtoE','ID_EtoP','dist','Epoch','Parents']
-    dfx = pd.DataFrame(L, columns= col)
-    # dfx
-    df1 = df1.append(dfx)
-    df1['Name'] = (df1.ID_CtoE + df1.ID_EtoP).str.join(',')
-    df1 = df1.drop_duplicates(subset='Name').sort_values('dist').reset_index(drop = True)    
-    session_state['df1'] = df1
-    session_state['Epoch'] = Epoch
+# if c1.button('RUN'):
+#     L = []      
+#     List = df1[:7].index.values
+#     np.random.shuffle(List)
+#     print(List)
+#     for n in range(3):
+#         print(n)
+#         i1 = List[n*2]
+#         i2 = List[n*2 + 1]
+#         dfx = df1.loc[[i1,i2]].copy()
+#         L2 = Reprodution(dfx,dfs, dfline)
+#         if L2:
+#             for l in L2:
+#                 l.append(Epoch)
+#                 l.append(dfx.Epoch.tolist())
+#                 Epoch+= 1
+#                 L.append(l)
+        
+#     col = ['Clist', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'ID_CtoE','ID_EtoP','dist','Epoch','Parents']
+#     dfx = pd.DataFrame(L, columns= col)
+#     # dfx
+#     df1 = df1.append(dfx)
+#     df1['Name'] = (df1.ID_CtoE + df1.ID_EtoP).str.join(',')
+#     df1 = df1.drop_duplicates(subset='Name').sort_values('dist').reset_index(drop = True)    
+#     session_state['df1'] = df1
+#     session_state['Epoch'] = Epoch
 
 # st._legacy_dataframe(df1.drop(columns = ['ID_CtoE','ID_EtoP']))
-st._legacy_dataframe(df1)
+st.write(str(algo.Comb))
+df1 = algo.df
+dfs = algo.dfslot
+dfline = algo.dfline
+st.table(df1.drop(columns= ['D','Name', 'Name_txt']).astype(str))
+
+
 ListSelectbox = df1.index
 index = st.selectbox('individu',ListSelectbox)
 row = df1.loc[index]
 
 print(row)
+# print(dfline)
 # st._legacy_dataframe(row.to_frame().T)
 ElemsList = ['Clist','Elist','Plist']
 Elems = ['C','E','P']
 IDSelects = []
-ID_CtoE = row.ID_CtoE
-ID_EtoP = row.ID_EtoP
+List_EtoC = row.List_EtoC
+List_PtoE = row.List_PtoE
 for n in range(3):
     IDSelects+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
 
-dflineSelect = dfline[dfline.ID.isin(ID_CtoE + ID_EtoP)].copy()
+dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
 dfsSelect = dfs[dfs.ID.isin(IDSelects)].copy()
 
 c1, c2, c3 = st.columns([0.3,0.3,0.4])      
@@ -95,10 +94,10 @@ if c2.checkbox('ALL combinaison') :
     dflineSelect = dfline.copy()
     dfsSelect = dfs.copy()
 
-fig = plot_(data,dflineSelect, dfsSelect)
+fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))
 
      
-c3.table(dflineSelect.astype('string').drop(columns = ['polyline']))  
+c3.table(dflineSelect.astype('string').drop(columns = ['polyline','long']))  
 c3.table(dfsSelect.astype('string'))
 c2.table(row.astype('string'))
        
