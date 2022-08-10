@@ -55,7 +55,7 @@ def load_data_brut(file):
     # L = []
     # D = dfs.Class.value_counts().to_dict()
     # Clist = dfs[dfs.Class =='C'].Name.sort_values().unique().tolist()
-    DropList = ['C0','E2','P0']
+    DropList = ['C0','E2']
     dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
     dfslot = dfslot[~dfslot.ID.isin(DropList)]
     
@@ -96,10 +96,10 @@ def indiv_create(algo):
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
-
+    dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist*2).to_dict()
     dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()*2
-    col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE', 'dist', 'Name']
-    l = [D,Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, List_EtoC,List_PtoE, dist, Name]
+    col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name']
+    l = [D,Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name]
     indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
 

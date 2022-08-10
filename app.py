@@ -19,7 +19,7 @@ st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
 file = 'VALEO_full.tmj'
 Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
-pop = 100
+pop = 200
     
 if 'algo' not in session_state: 
     algo = load_data_brut(file)
@@ -68,7 +68,7 @@ st.write(str(algo.Comb))
 df1 = algo.df
 dfs = algo.dfslot
 dfline = algo.dfline
-st.table(df1.drop(columns= ['D','Name', 'Name_txt']).astype(str))
+st._legacy_dataframe(df1.drop(columns= ['D','Name', 'Name_txt']).astype(str))
 
 
 ListSelectbox = df1.index
