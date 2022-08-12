@@ -17,7 +17,6 @@ from types import SimpleNamespace
 # def load_data(Size, time):
 #     return load_data_brut(Size)
 
-
 def load_data_brut(file):
     print("begin")
     
@@ -45,19 +44,24 @@ def load_data_brut(file):
         dfline.loc[idx ,'dist'] = np.abs(np.diff(p.T)).sum()
     dfline.start = pd.to_numeric(dfline.start)
     dfline.end = pd.to_numeric(dfline.end)
-    dfline.dist = dfline.dist.astype(int)
+    dfline.dist = (dfline.dist.astype(int)*2/100).round(2)
     dfline = dfline.drop(columns= ['properties','x','y'])
     t = dfline.Class.str.split('-')
     dfline['ID'] = t.str[1] + dfline.end.astype(str) + '-' + t.str[0] + dfline.start.astype(str)
     dfline = dfline.sort_values('ID').reset_index(drop = True)
-    # dfline['ID'] = dfline.Class + dfline.start.astype(str) + dfline.end.astype(str)
 
-    # L = []
-    # D = dfs.Class.value_counts().to_dict()
-    # Clist = dfs[dfs.Class =='C'].Name.sort_values().unique().tolist()
+
     DropList = ['C0','E2']
     dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
     dfslot = dfslot[~dfslot.ID.isin(DropList)]
+    
+    A0 = data['layers'][0]['data']
+    height = data['height']
+    A0 = np.array(A0).reshape(10,7)
+    pas = 16
+    unique = np.unique(A0)
+    A0[A0 == unique[0]] = 0
+    A0[A0 == unique[1]] = 1
     
     algo = dict(
         pop = 50,
@@ -67,8 +71,9 @@ def load_data_brut(file):
         indivs = [],
         df = [],
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
+        dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
-        A0 = data['layers'][0]['data'],
+        A0 = A0,
     )
     algo = SimpleNamespace(**algo)
     return algo
@@ -79,7 +84,6 @@ def indiv_create(algo):
     Clist = D['C']
     Ccount = len(D['C'])
     CtoE = list(np.random.choice(D['E'],Ccount))
-    # CtoE = [1,0,1]
     d = collections.defaultdict(list)
     for i in range(Ccount):      d[CtoE[i]].append(D['C'][i])
     Econnect = dict(sorted(d.items()))
@@ -95,44 +99,17 @@ def indiv_create(algo):
 
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
+    
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
-    dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist*2).to_dict()
-    dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()*2
+    dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist).to_dict()
+    dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
+    
     col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name']
     l = [D,Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name]
     indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
 
     return indiv
-# SAVE
-    # for n in range(Size): 
-    #     # Clist = list(range(D['C']))        
-
-    #     CtoE = np.random.randint(0,D['E'],D['C'])
-    #     Econnect = dict(collections.Counter(CtoE))
-    #     Elist = sorted(Econnect)
-    #     Ecount = len(Elist)
-
-    #     EtoP = np.random.randint(0,D['P'],Ecount)
-    #     Pconnect = dict(collections.Counter(EtoP))
-    #     Plist = sorted(Pconnect)
-    #     Pcount = len(Plist)       
-        
-
-    #     ID_CtoE = ['C{}-E{}'.format(C, CtoE[i]) for i, C in enumerate(Clist)]
-    #     ID_EtoP = ['E{}-P{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
-
-    #     dist = dfline.loc[dfline.ID.isin(ID_CtoE + ID_EtoP), 'dist'].sum()  
-
-    #     l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, ID_CtoE,ID_EtoP,dist]
-    #     L.append(l)  
-
-    # col = ['Clist', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'ID_CtoE','ID_EtoP','dist']
-    # df = pd.DataFrame(L, columns= col)
-
-    # df['Name'] = (df.ID_CtoE + df.ID_EtoP).str.join(',')
-    # df1 = df.drop_duplicates(subset='Name').sort_values('dist')
-    # return data, dfs, dfline , df1.drop(columns = 'Name').reset_index(drop= True)
 
 def indiv_init(algo, pop):
     L = []
@@ -150,20 +127,13 @@ def indiv_init(algo, pop):
     return df
 
 def plot_(algo,dflineSelect, dfsSelect, name): 
-    # N = data['height']
-    # A0 = data['layers'][0]['data']
-    height = algo.height
-    A00 = algo.A0
-    A0 = np.array(A00).reshape(10,7)
-    pas = 16
-    unique = np.unique(A0)
-    A0[A0 == unique[0]] = 0
-    A0[A0 == unique[1]] = 1
+    A0 = algo.A0.copy()
+    
     for idx, row in dfsSelect.iterrows():
         A0[row.y, row.x] = row.Color + int(row.Name)   
         
     A = np.kron(A0, np.ones((16,16), dtype=int))
-    fig, ax = plt.subplots(figsize = (10,10))
+    fig, ax = plt.subplots(figsize = (8,8))
     ax.set_title(name)
     plt.xticks([])
     plt.yticks([])
@@ -179,6 +149,53 @@ def plot_(algo,dflineSelect, dfsSelect, name):
         text = row.Class + str(row.Name)
         f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
     return fig
+
+def debit(Dict_dist, group = True):
+    d_EtoC = Dict_dist['EtoC']
+    d_PtoE = Dict_dist['PtoE']
+    p  = [-5.16e-04, -1.54e-02, 4.87]
+    coef_E  = 7.64e-04
+    coef_C  = 0.036
+    coef_d  = 2.35e-04    
+    
+    A = coef_E + d_EtoC * coef_d + coef_C 
+    Z =( A**-0.5).sum() if group else A**-0.5
+    As , Bs, Cs = p[0] - (coef_d * d_PtoE) - 1/(Z**2), p[1] , p[2]
+    delta = (Bs**2) - (4 * As * Cs)
+    Qt  = np.array((- Bs - delta**0.5)/(2*As))
+    Pt = np.array(Qt**2 / Z**2)
+    a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
+    Qi = (Pt / A)**0.5
+    Pi = coef_C * (Qi**2)
+    key = ['Qt','Pt','Qi','Pi']
+    val = [Qt, Pt, Qi, Pi]
+    val = [v.round(1) for v in val]
+    return dict(zip(key,val))
+
+
+def Calcul_All(algo ,row, group):
+    Econnect = row.Econnect
+    Pconnect = row.Pconnect
+    Pression = []
+    Debit = []
+    Data = {}
+    for i, (e,Clist) in enumerate(Econnect.items()):
+        p = row.EtoP[i]
+        name = 'P{}-E{}'.format(p,e)
+        dc = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in Clist])
+        dp = algo.dist['P{}-E{}'.format(p,e)]
+        info = [i,e,Clist, p, dc, dp]
+        Dict_dist = {'EtoC': dc,'PtoE':dp }
+        res = debit(Dict_dist, group)
+        Data[name] = res
+        Pression = Pression + list(res['Pi'])
+        Debit = Debit+ list(res['Qi'])
+    SumDebit = round(sum(Debit),1)
+    keys = ['info','Data','Pression','Debit','SumDebit']
+    vals = [info, Data,Pression, Debit, SumDebit] 
+    return dict(zip(keys,vals))
+
+
 
 def indiv_verif(row, NewCtoE, dfs, dfline): 
     D = dfs.Class.value_counts().to_dict()

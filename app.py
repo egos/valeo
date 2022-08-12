@@ -68,7 +68,23 @@ st.write(str(algo.Comb))
 df1 = algo.df
 dfs = algo.dfslot
 dfline = algo.dfline
-st._legacy_dataframe(df1.drop(columns= ['D','Name', 'Name_txt']).astype(str))
+
+for idx,row  in df1.iterrows():
+    rowCopy = copy.deepcopy(row)
+    d = Calcul_All(algo ,rowCopy, False)
+    col = ['Pression', 'Debit','SumDebit']
+    col2 = ['Pression_s', 'Debit_s','SumDebit_s']
+    df1.loc[idx, col2] = [str(d[c]) for c in col]
+    d = Calcul_All(algo , rowCopy, True)
+    col = ['Pression', 'Debit','SumDebit']
+    df1.loc[idx, col] = [str(d[c]) for c in col]
+
+df1.dist= df1.dist.round(2)
+
+
+Col_drop = ['Clist','D','Name', 'Name_txt','dist_Connect','List_EtoC','List_PtoE']
+# Col_drop = ['D','Name', 'Name_txt']
+st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str))
 
 
 ListSelectbox = df1.index
