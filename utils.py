@@ -30,7 +30,6 @@ def load_data_brut(file):
     dfslot['ID'] = dfslot.Class + dfslot.Name.astype(str)
     dfslot['Color'] = dfslot['Class'].map({'C':10,'E':20,'P':30})
 
-
     dfline  = pd.DataFrame(data['layers'][2]['objects']).drop(columns=['rotation','width','name','height','visible','id']).rename(columns = {'class' : 'Class'})
     for idx, row in dfline.iterrows():
         properties = row.properties
@@ -50,10 +49,11 @@ def load_data_brut(file):
     dfline['ID'] = t.str[1] + dfline.end.astype(str) + '-' + t.str[0] + dfline.start.astype(str)
     dfline = dfline.sort_values('ID').reset_index(drop = True)
 
-
     DropList = ['C0','E2']
-    dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
-    dfslot = dfslot[~dfslot.ID.isin(DropList)]
+    DropList = []
+    if len(DropList) > 0 : 
+        dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
+        dfslot = dfslot[~dfslot.ID.isin(DropList)]
     
     A0 = data['layers'][0]['data']
     height = data['height']
@@ -68,6 +68,8 @@ def load_data_brut(file):
         dfslot = dfslot,
         dfline = dfline,
         epoch = 0,
+        Nindiv = 0,
+        Nrepro = 0,
         indivs = [],
         df = [],
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
@@ -78,52 +80,102 @@ def load_data_brut(file):
     algo = SimpleNamespace(**algo)
     return algo
 
-def indiv_create(algo):
+def indiv_create(algo, row = None, NewCtoE = None): 
     dfline = algo.dfline
-    D = algo.Comb
+    D = algo.Comb    
     Clist = D['C']
     Ccount = len(D['C'])
-    CtoE = list(np.random.choice(D['E'],Ccount))
+    
+    if NewCtoE is not None : CtoE = NewCtoE
+    else : CtoE = np.random.choice(D['E'],Ccount)
+    
     d = collections.defaultdict(list)
     for i in range(Ccount):      d[CtoE[i]].append(D['C'][i])
     Econnect = dict(sorted(d.items()))
+    # Econnect = dict(collections.Counter(CtoE))
     Elist = sorted(Econnect)
-    Ecount = len(Elist)
-
-    EtoP = list(np.random.choice(D['P'],Ecount))
+    Ecount = len(Elist)      
+        
+    if row is not None :  
+        if Ecount > row.Ecount:
+            # print(D['P'],Ecount - row.Ecount)
+            NewEtoP = np.random.randint(0,len(D['P']),Ecount - row.Ecount)
+            EtoP = np.append(row.EtoP, NewEtoP)
+        elif Ecount < row.Ecount : 
+            EtoP = np.random.choice(row.EtoP,Ecount)
+            # print("Ecount",EtoP)
+        else :
+            EtoP = row.EtoP
+        # print(NewCtoE , 'avant',row.Elist,row.EtoP,'apres',Elist,EtoP,row.Ecount, Ecount)
+    else : EtoP = np.random.choice(D['P'],Ecount)
+    
     d = collections.defaultdict(list)
-    for i in range(Ecount):      d[EtoP[i]].append(Elist[i])
-    Pconnect = dict(sorted(d.items()))
+    for i in range(Ecount):      d[EtoP[i]].append(Elist[i]) 
+    Pconnect = dict(sorted(d.items()))   
+    # Pconnect = dict(collections.Counter(EtoP))
     Plist = sorted(Pconnect)
-    Pcount = len(Plist)
-
+    Pcount = len(Plist)    
+    
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
-    
+        
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
     dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist).to_dict()
     dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
     
-    col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name']
-    l = [D,Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name]
+    Name_txt = ','.join(Name)
+    
+    algo.Nindiv += 1
+    col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
+           'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name','ID', 'Name_txt']
+    l = [D, Clist, CtoE,Econnect,Elist,Ecount, EtoP,
+         Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name,algo.Nindiv, Name_txt]
     indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
-
+    algo.indivs.append(l)
+        
     return indiv
 
+def Reprodution(dfx, algo):
+    c1, c2 = copy.deepcopy(dfx.CtoE.values)
+    
+    if (c1 != c2).any():        
+        m = c1 != c2
+        index = np.where(m)[0]
+        
+        # search for gen diff between indivs = index        
+        if len(index) > 1:    
+            idx = np.random.choice(index)
+        elif len(index) == 1:
+            idx = index  
+            
+        # print(c1, c2,'crossover',index, c1[idx] , c2[idx])           
+        c1[idx] , c2[idx] = c2[idx] , c1[idx]
+        NewCtoE = c1 , c2
+        # print(NewCtoE)
+        L = []
+        parents = dfx.ID.tolist()
+        for i in range(2):
+            row = dfx.iloc[i]            
+            indiv = indiv_create(algo, row,NewCtoE[i]) 
+            indiv['parent'] =  parents
+            L.append(indiv)
+        return L 
+ 
 def indiv_init(algo, pop):
     L = []
     for i in range(pop):
-        l = indiv_create(algo)
-        algo.indivs.append(l)
-        algo.epoch += 1
+        # l = indiv_create(algo)
+        l = indiv_create(algo)        
         L.append(l)
     # col = ['D', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoC', 'dist', 'Name']
     # df = pd.DataFrame([vars(i) for i in indivs])
     df = pd.DataFrame(L)
-    df['Name_txt'] = df.Name.str.join(',')
-    df = df.drop_duplicates(subset='Name_txt').sort_values('dist').reset_index(drop = True)
-    algo.df = df
+    # df['Name_txt'] = df.Name.str.join(',')
+    df = df.drop_duplicates(subset='Name_txt')
+    # df = df.sort_values('dist')
+    df = df.reset_index(drop = True)
+    
     return df
 
 def plot_(algo,dflineSelect, dfsSelect, name): 
@@ -172,7 +224,6 @@ def debit(Dict_dist, group = True):
     val = [v.round(1) for v in val]
     return dict(zip(key,val))
 
-
 def Calcul_All(algo ,row, group):
     Econnect = row.Econnect
     Pconnect = row.Pconnect
@@ -194,59 +245,3 @@ def Calcul_All(algo ,row, group):
     keys = ['info','Data','Pression','Debit','SumDebit']
     vals = [info, Data,Pression, Debit, SumDebit] 
     return dict(zip(keys,vals))
-
-
-
-def indiv_verif(row, NewCtoE, dfs, dfline): 
-    D = dfs.Class.value_counts().to_dict()
-    Clist = list(range(D['C']))
-    Clist = dfs[dfs.Class =='C'].Name.sort_values().unique().tolist()
-    
-    CtoE = NewCtoE
-    Econnect = dict(collections.Counter(CtoE))
-    Elist = sorted(Econnect)
-    Ecount = len(Elist)   
-    
-    if Ecount > row.Ecount:
-        NewEtoP = np.random.randint(0,D['P'],Ecount - row.Ecount)
-        EtoP = np.append(row.EtoP, NewEtoP)
-    elif Ecount < row.Ecount:
-        # print(Elist,'avant',row.EtoP,row.Ecount, Ecount)
-        EtoP = np.random.choice(row.EtoP,Ecount)
-        # print("Ecount",EtoP)
-    else : 
-        EtoP = row.EtoP
-    # print(Elist,'apres',EtoP,row.Ecount, Ecount)
-    Pconnect = dict(collections.Counter(EtoP))
-    Plist = sorted(Pconnect)
-    Pcount = len(Plist)    
-
-    # ID_CtoE = ['C-E{}{}'.format(i, CtoE[i]) for i in Clist]
-    # ID_EtoP = ['E-P{}{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
-    ID_CtoE = ['C{}-E{}'.format(C, CtoE[i]) for i, C in enumerate(Clist)]
-    ID_EtoP = ['E{}-P{}'.format(Elist[i]  , EtoP[i]) for i in range(Ecount)]
-
-    dist = dfline.loc[dfline.ID.isin(ID_CtoE + ID_EtoP), 'dist'].sum()  
-    l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,Pconnect,Plist,Pcount, ID_CtoE,ID_EtoP,dist]
-    return l 
-
-def Reprodution(dfx,dfs, dfline):
-    c1, c2 = copy.deepcopy(dfx.CtoE.values)
-    
-    if (c1 != c2).any():        
-        m = c1 != c2
-        index = np.where(m)[0]
-        # search for gen diff between indivs = index        
-        if len(index) > 1:    
-            idx = np.random.choice(index)
-        elif len(index) == 1:
-            idx = index             
-        c1[idx] , c2[idx] = c2[idx] , c1[idx]
-        NewCtoE = c1 , c2
-        L = []
-        # verif each children
-        for i in range(2):
-            row = dfx.iloc[i]
-            l = indiv_verif(row,NewCtoE[i],dfs, dfline) 
-            L.append(l)
-        return L

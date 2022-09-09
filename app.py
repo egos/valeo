@@ -19,79 +19,74 @@ st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
 file = 'VALEO_full.tmj'
 Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
-pop = 200
+pop = 10
     
 if 'algo' not in session_state: 
     algo = load_data_brut(file)
-    df1 = indiv_init(algo, pop)
+    algo.df = indiv_init(algo, pop)
     session_state['algo'] = algo
 else : 
     algo = session_state['algo']
-    
-      
+       
 c1,c2 = st.columns(2)
 
 if c2.button('RESET'):
     algo = load_data_brut(file)
-    df1 = indiv_init(algo, pop)
-    session_state['algo'] = algo
-        
-# if c1.button('RUN'):
-#     L = []      
-#     List = df1[:7].index.values
-#     np.random.shuffle(List)
-#     print(List)
-#     for n in range(3):
-#         print(n)
-#         i1 = List[n*2]
-#         i2 = List[n*2 + 1]
-#         dfx = df1.loc[[i1,i2]].copy()
-#         L2 = Reprodution(dfx,dfs, dfline)
-#         if L2:
-#             for l in L2:
-#                 l.append(Epoch)
-#                 l.append(dfx.Epoch.tolist())
-#                 Epoch+= 1
-#                 L.append(l)
-        
-#     col = ['Clist', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'ID_CtoE','ID_EtoP','dist','Epoch','Parents']
-#     dfx = pd.DataFrame(L, columns= col)
-#     # dfx
-#     df1 = df1.append(dfx)
-#     df1['Name'] = (df1.ID_CtoE + df1.ID_EtoP).str.join(',')
-#     df1 = df1.drop_duplicates(subset='Name').sort_values('dist').reset_index(drop = True)    
-#     session_state['df1'] = df1
-#     session_state['Epoch'] = Epoch
+    algo.df = indiv_init(algo, pop)
+    session_state['algo'] = algo      
+
+if c1.button('RUN'):
+    df1 = algo.df
+    df1 = df1.sort_values('dist').reset_index(drop = True)
+    L = []      
+    List = df1[:7].index.values
+    np.random.shuffle(List)
+    print(List)
+    L = [] 
+    for n in range(3):    
+        i1 , i2 = List[n*2] , List[n*2 + 1]
+        # print(n,i1,i2)
+        dfx = df1.loc[[i1,i2]].copy()
+        L2 = Reprodution(dfx, algo)
+        if L2 is not None :  
+            L += L2   
+            algo.Nrepro +=1
+    dfx = pd.DataFrame(L)
+    algo.df = pd.concat([df1, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
+    session_state['algo'] = algo 
+
 
 # st._legacy_dataframe(df1.drop(columns = ['ID_CtoE','ID_EtoP']))
-st.write(str(algo.Comb))
+st.write('Pattern : ',str(algo.Comb) ,' ---------- Nrepro : ',  str(algo.Nrepro))
 df1 = algo.df
+df1 = df1.sort_values('dist').reset_index(drop = True)
 dfs = algo.dfslot
 dfline = algo.dfline
 
 for idx,row  in df1.iterrows():
     rowCopy = copy.deepcopy(row)
     d = Calcul_All(algo ,rowCopy, False)
-    col = ['Pression', 'Debit','SumDebit']
+    col  = ['Pression', 'Debit','SumDebit']
     col2 = ['Pression_s', 'Debit_s','SumDebit_s']
     df1.loc[idx, col2] = [str(d[c]) for c in col]
     d = Calcul_All(algo , rowCopy, True)
     col = ['Pression', 'Debit','SumDebit']
     df1.loc[idx, col] = [str(d[c]) for c in col]
 
-df1.dist= df1.dist.round(2)
+df1.dist = df1.dist.round(2)
 
-
-Col_drop = ['Clist','D','Name', 'Name_txt','dist_Connect','List_EtoC','List_PtoE']
+Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
+Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
+Col_drop = Col_drop_1 + Col_drop_2
 # Col_drop = ['D','Name', 'Name_txt']
-st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str))
+st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
 
 
 ListSelectbox = df1.index
 index = st.selectbox('individu',ListSelectbox)
 row = df1.loc[index]
 
-print(row)
+# print(row)
 # print(dfline)
 # st._legacy_dataframe(row.to_frame().T)
 ElemsList = ['Clist','Elist','Plist']
