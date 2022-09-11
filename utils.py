@@ -133,6 +133,7 @@ def indiv_create(algo, row = None, NewCtoE = None):
     indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
     algo.indivs.append(l)
+    algo.Nrepro +=1
         
     return indiv
 
@@ -165,15 +166,11 @@ def Reprodution(dfx, algo):
 def indiv_init(algo, pop):
     L = []
     for i in range(pop):
-        # l = indiv_create(algo)
-        l = indiv_create(algo)        
-        L.append(l)
-    # col = ['D', 'CtoE','Econnect','Elist','Ecount', 'EtoP','Pconnect','Plist','Pcount', 'List_EtoC','List_PtoC', 'dist', 'Name']
-    # df = pd.DataFrame([vars(i) for i in indivs])
+        
+        indiv = indiv_create(algo)        
+        L.append(indiv)
     df = pd.DataFrame(L)
-    # df['Name_txt'] = df.Name.str.join(',')
     df = df.drop_duplicates(subset='Name_txt')
-    # df = df.sort_values('dist')
     df = df.reset_index(drop = True)
     
     return df
@@ -240,7 +237,7 @@ def Calcul_All(algo ,row, group):
         res = debit(Dict_dist, group)
         Data[name] = res
         Pression = Pression + list(res['Pi'])
-        Debit = Debit+ list(res['Qi'])
+        Debit = Debit + list(res['Qi'])
     SumDebit = round(sum(Debit),1)
     keys = ['info','Data','Pression','Debit','SumDebit']
     vals = [info, Data,Pression, Debit, SumDebit] 

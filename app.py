@@ -45,19 +45,19 @@ if c1.button('RUN'):
     L = [] 
     for n in range(3):    
         i1 , i2 = List[n*2] , List[n*2 + 1]
-        # print(n,i1,i2)
+        print(n,i1,i2)
         dfx = df1.loc[[i1,i2]].copy()
         L2 = Reprodution(dfx, algo)
         if L2 is not None :  
             L += L2   
-            algo.Nrepro +=1
+            # algo.Nrepro +=1
     dfx = pd.DataFrame(L)
     algo.df = pd.concat([df1, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
     session_state['algo'] = algo 
 
 
 # st._legacy_dataframe(df1.drop(columns = ['ID_CtoE','ID_EtoP']))
-st.write('Pattern : ',str(algo.Comb) ,' ---------- Nrepro : ',  str(algo.Nrepro))
+
 df1 = algo.df
 df1 = df1.sort_values('dist').reset_index(drop = True)
 dfs = algo.dfslot
@@ -79,6 +79,8 @@ Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_Pto
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop = Col_drop_1 + Col_drop_2
 # Col_drop = ['D','Name', 'Name_txt']
+
+st.write('Pattern : ',str(algo.Comb) ,' ---------- Nrepro : ',  str(algo.Nrepro), ' ---- indivs : ' , df1.shape)
 st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
 
 
