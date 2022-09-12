@@ -65,3 +65,14 @@ def indiv_create(algo):
     indiv = dict(zip(col,l))
 
     return indiv
+
+
+# for idx,row  in df1.iterrows():
+#     rowCopy = copy.deepcopy(row)
+#     d = Calcul_All(algo ,rowCopy, False)
+#     col  = ['Pression', 'Debit','SumDebit']
+#     col2 = ['Pression_s', 'Debit_s','SumDebit_s']
+#     df1.loc[idx, col2] = [str(d[c]) for c in col]
+#     d = Calcul_All(algo , rowCopy, True)
+#     col = ['Pression', 'Debit','SumDebit']
+#     df1.loc[idx, col] = [str(d[c]) for c in col]

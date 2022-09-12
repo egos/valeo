@@ -50,7 +50,7 @@ def load_data_brut(file):
     dfline = dfline.sort_values('ID').reset_index(drop = True)
 
     DropList = ['C0','E2']
-    DropList = []
+    # DropList = []
     if len(DropList) > 0 : 
         dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
         dfslot = dfslot[~dfslot.ID.isin(DropList)]
@@ -72,6 +72,10 @@ def load_data_brut(file):
         Nrepro = 0,
         indivs = [],
         df = [],
+        Tuyau = 'T1',
+        Pompe = 'P1',
+        EV = 'E1',        
+        confs = pd.read_excel('data.xlsx'),
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
@@ -90,8 +94,10 @@ def indiv_create(algo, row = None, NewCtoE = None):
     else : CtoE = np.random.choice(D['E'],Ccount)
     
     d = collections.defaultdict(list)
-    for i in range(Ccount):      d[CtoE[i]].append(D['C'][i])
+    for i in range(Ccount): 
+        d[CtoE[i]].append(D['C'][i])
     Econnect = dict(sorted(d.items()))
+    Edist = dict(sorted(d.items()))
     # Econnect = dict(collections.Counter(CtoE))
     Elist = sorted(Econnect)
     Ecount = len(Elist)      
@@ -122,7 +128,7 @@ def indiv_create(algo, row = None, NewCtoE = None):
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
     dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist).to_dict()
     dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
-    
+    dist = round(dist,2)
     Name_txt = ','.join(Name)
     
     algo.Nindiv += 1
@@ -130,10 +136,50 @@ def indiv_create(algo, row = None, NewCtoE = None):
            'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name','ID', 'Name_txt']
     l = [D, Clist, CtoE,Econnect,Elist,Ecount, EtoP,
          Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name,algo.Nindiv, Name_txt]
-    indiv = SimpleNamespace(**dict(zip(col,l)))
+    # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
-    algo.indivs.append(l)
+    algo.indivs.append(indiv)
     algo.Nrepro +=1
+    
+    # calcul debit
+    d =  Calcul_All(algo ,indiv, False)
+    col  = ['Pression', 'Debit','SumDebit']
+    indiv.update({(c +'_s'): d[c] for c in col})
+    d =  Calcul_All(algo ,indiv, True)
+    indiv.update({(c +'_g'): d[c] for c in col})
+    
+    
+    dmasse = {}
+    dcout = {}
+    confs = algo.confs
+
+    masse, cout = confs[confs.Name == algo.Pompe][['Masse','Cout']].values[0]
+    masse, cout 
+    dmasse['Pmasse'] = Ecount*masse
+    dcout['Pcout'] = Ecount*cout
+
+    masse, cout = confs[confs.Name == algo.Tuyau][['Masse','Cout']].values[0]
+    masse, cout
+    dmasse['Tmasse'] = dist*masse
+    dcout['Tcout'] = dist*cout
+
+
+    Ccount = len(algo.Comb['C'])
+    masse, cout = confs[confs.Name == algo.EV][['Masse','Cout']].values[0]
+    masse, cout
+    dmasse['Emasse'] = Ccount*masse
+    dcout['Ecout'] = Ccount*cout
+
+    dmasse['Reservoir'] = 600
+    dcout['Reservoir'] = 30
+
+    dmasse
+    dcout
+
+    indiv['Poid'] = round(sum(dmasse.values()),2)
+    indiv['Cout'] = round(sum(dcout.values()),2)
+    
+    # mP = Pcount * 
         
     return indiv
 
@@ -165,8 +211,7 @@ def Reprodution(dfx, algo):
  
 def indiv_init(algo, pop):
     L = []
-    for i in range(pop):
-        
+    for i in range(pop):        
         indiv = indiv_create(algo)        
         L.append(indiv)
     df = pd.DataFrame(L)
@@ -221,14 +266,16 @@ def debit(Dict_dist, group = True):
     val = [v.round(1) for v in val]
     return dict(zip(key,val))
 
-def Calcul_All(algo ,row, group):
-    Econnect = row.Econnect
-    Pconnect = row.Pconnect
+def Calcul_All(algo ,indiv, group):
+    Econnect = indiv['Econnect']
+    Pconnect = indiv['Pconnect']
+    EtoP = indiv['EtoP']
     Pression = []
     Debit = []
     Data = {}
+    # on loop sur chaque EV pour remonter pompe EV capteur 
     for i, (e,Clist) in enumerate(Econnect.items()):
-        p = row.EtoP[i]
+        p = EtoP[i]
         name = 'P{}-E{}'.format(p,e)
         dc = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in Clist])
         dp = algo.dist['P{}-E{}'.format(p,e)]
@@ -239,6 +286,11 @@ def Calcul_All(algo ,row, group):
         Pression = Pression + list(res['Pi'])
         Debit = Debit + list(res['Qi'])
     SumDebit = round(sum(Debit),1)
-    keys = ['info','Data','Pression','Debit','SumDebit']
-    vals = [info, Data,Pression, Debit, SumDebit] 
+    # keys = ['info','Data','Pression','Debit','SumDebit']
+    # vals = [info, Data,Pression, Debit, SumDebit] 
+    keys = ['Pression','Debit','SumDebit']
+    vals = [Pression, Debit, SumDebit] 
     return dict(zip(keys,vals))
+
+
+
