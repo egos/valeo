@@ -151,35 +151,35 @@ def indiv_create(algo, row = None, NewCtoE = None):
     indiv.update({(c +'_g'): d[c] for c in col})
     
     
-    # dmasse = {}
-    # dcout = {}
-    # confs = algo.confs
+    dmasse = {}
+    dcout = {}
+    confs = algo.confs
 
-    # masse, cout = confs[confs.Name == algo.Pompe][['Masse','Cout']].values[0]
-    # masse, cout 
-    # dmasse['Pmasse'] = Ecount*masse
-    # dcout['Pcout'] = Ecount*cout
+    masse, cout = confs[confs.Name == algo.Pompe][['Masse','Cout']].values[0]
+    masse, cout 
+    dmasse['Pmasse'] = Ecount*masse
+    dcout['Pcout'] = Ecount*cout
 
-    # masse, cout = confs[confs.Name == algo.Tuyau][['Masse','Cout']].values[0]
-    # masse, cout
-    # dmasse['Tmasse'] = dist*masse
-    # dcout['Tcout'] = dist*cout
+    masse, cout = confs[confs.Name == algo.Tuyau][['Masse','Cout']].values[0]
+    masse, cout
+    dmasse['Tmasse'] = dist*masse
+    dcout['Tcout'] = dist*cout
 
 
-    # Ccount = len(algo.Comb['C'])
-    # masse, cout = confs[confs.Name == algo.EV][['Masse','Cout']].values[0]
-    # masse, cout
-    # dmasse['Emasse'] = Ccount*masse
-    # dcout['Ecout'] = Ccount*cout
+    Ccount = len(algo.Comb['C'])
+    masse, cout = confs[confs.Name == algo.EV][['Masse','Cout']].values[0]
+    masse, cout
+    dmasse['Emasse'] = Ccount*masse
+    dcout['Ecout'] = Ccount*cout
 
-    # dmasse['Reservoir'] = 600
-    # dcout['Reservoir'] = 30
+    dmasse['Reservoir'] = 600
+    dcout['Reservoir'] = 30
 
-    # dmasse
-    # dcout
+    dmasse
+    dcout
 
-    # indiv['Poid'] = round(sum(dmasse.values()),2)
-    # indiv['Cout'] = round(sum(dcout.values()),2)
+    indiv['Poid'] = round(sum(dmasse.values()),2)
+    indiv['Cout'] = round(sum(dcout.values()),2)
     
     # mP = Pcount * 
         
