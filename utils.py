@@ -63,7 +63,7 @@ def load_data_brut(file):
     A0[A0 == unique[0]] = 0
     A0[A0 == unique[1]] = 1
     
-    confs = pd.read_excel('data.xlsx')
+    confs = pd.read_excel('test.xlsx')
     
     algo = dict(
         pop = 50,
