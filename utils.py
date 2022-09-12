@@ -48,6 +48,8 @@ def load_data_brut(file):
     t = dfline.Class.str.split('-')
     dfline['ID'] = t.str[1] + dfline.end.astype(str) + '-' + t.str[0] + dfline.start.astype(str)
     dfline = dfline.sort_values('ID').reset_index(drop = True)
+    
+    Comb_All = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict()
 
     DropList = ['C0','E2']
     # DropList = []
@@ -67,6 +69,7 @@ def load_data_brut(file):
     
     algo = dict(
         pop = 50,
+        fitness = 'dist',
         dfslot = dfslot,
         dfline = dfline,
         epoch = 0,
@@ -79,6 +82,7 @@ def load_data_brut(file):
         EV = 'E1',        
         confs = confs,
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
+        CombAll = Comb_All,
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
         A0 = A0,
@@ -87,6 +91,7 @@ def load_data_brut(file):
     return algo
 
 def indiv_create(algo, row = None, NewCtoE = None): 
+     
     dfline = algo.dfline
     D = algo.Comb    
     Clist = D['C']
@@ -144,48 +149,51 @@ def indiv_create(algo, row = None, NewCtoE = None):
     algo.Nrepro +=1
     
     # calcul debit
-    d =  Calcul_All(algo ,indiv, False)
+    d =  Calcul_Debit(algo ,indiv, False)
     col  = ['Pression', 'Debit','SumDebit']
     indiv.update({(c +'_s'): d[c] for c in col})
-    d =  Calcul_All(algo ,indiv, True)
+    d =  Calcul_Debit(algo ,indiv, True)
     indiv.update({(c +'_g'): d[c] for c in col})
     
-    
+    info , d = calcul_Masse_cout(indiv, algo)
+    indiv.update(d)
+
+        
+    return indiv
+
+def calcul_Masse_cout(indiv, algo): 
     dmasse = {}
     dcout = {}
     confs = algo.confs
 
     masse, cout = confs[confs.Name == algo.Pompe][['Masse','Cout']].values[0]
     masse, cout 
-    dmasse['Pmasse'] = Ecount*masse
-    dcout['Pcout'] = Ecount*cout
+    dmasse['Pmasse'] = indiv['Ecount']*masse
+    dcout['Pcout']   = indiv['Ecount']*cout
 
     masse, cout = confs[confs.Name == algo.Tuyau][['Masse','Cout']].values[0]
     masse, cout
-    dmasse['Tmasse'] = dist*masse
-    dcout['Tcout'] = dist*cout
+    dmasse['Tmasse'] = indiv['dist']*masse
+    dcout['Tcout']   = indiv['dist']*cout
 
 
     Ccount = len(algo.Comb['C'])
     masse, cout = confs[confs.Name == algo.EV][['Masse','Cout']].values[0]
     masse, cout
     dmasse['Emasse'] = Ccount*masse
-    dcout['Ecout'] = Ccount*cout
+    dcout['Ecout']   = Ccount*cout
 
     dmasse['Reservoir'] = 600
-    dcout['Reservoir'] = 30
-
-    dmasse
-    dcout
-
-    indiv['Poid'] = round(sum(dmasse.values()),2)
-    indiv['Cout'] = round(sum(dcout.values()),2)
+    dcout['Reservoir']  = 30    
     
-    # mP = Pcount * 
-        
-    return indiv
+    info = [dmasse, dcout]
+    Masse = round(sum(dmasse.values()),2)
+    Cout = round(sum(dcout.values()),2)
+    
+    return  info, { 'Masse' : Masse, 'Cout' : Cout}
 
 def Reprodution(dfx, algo):
+    
     c1, c2 = copy.deepcopy(dfx.CtoE.values)
     
     if (c1 != c2).any():        
@@ -212,6 +220,10 @@ def Reprodution(dfx, algo):
         return L 
  
 def indiv_init(algo, pop):
+    algo.Nindiv = 0 
+    algo.indivs = []
+    algo.epoch = 0
+    algo.Nrepro = 0
     L = []
     for i in range(pop):        
         indiv = indiv_create(algo)        
@@ -268,7 +280,7 @@ def debit(Dict_dist, group = True):
     val = [v.round(1) for v in val]
     return dict(zip(key,val))
 
-def Calcul_All(algo ,indiv, group):
+def Calcul_Debit(algo ,indiv, group):
     Econnect = indiv['Econnect']
     Pconnect = indiv['Pconnect']
     EtoP = indiv['EtoP']
