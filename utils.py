@@ -63,6 +63,8 @@ def load_data_brut(file):
     A0[A0 == unique[0]] = 0
     A0[A0 == unique[1]] = 1
     
+    confs = pd.read_excel('data.xlsx')
+    
     algo = dict(
         pop = 50,
         dfslot = dfslot,
@@ -75,7 +77,7 @@ def load_data_brut(file):
         Tuyau = 'T1',
         Pompe = 'P1',
         EV = 'E1',        
-        confs = pd.read_excel('data.xlsx'),
+        confs = confs,
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
