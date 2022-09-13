@@ -21,17 +21,33 @@ file = 'VALEO_full.tmj'
 Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10
         
-menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
+
 
 if 'algo' not in session_state: 
+    print('init')
     algo = load_data_brut(file)
     algo.df = indiv_init(algo, pop)
     session_state['algo'] = algo
 else : 
     algo = session_state['algo']
+
+with st.form("my_form"):  
+    select = st.multiselect('select',algo.CombAll, algo.CombAll)
+    select = [s for s in algo.CombAll if s not in select]
+    print(select)
+    if select == [] : select = None
+    submitted = st.form_submit_button("Submit")
+    if submitted:
+        algo = load_data_brut(file, select)
+        algo.df = indiv_init(algo, pop)
+        session_state['algo'] = algo
+        print('submitted')
+
+    
+menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
     
 if menu == 'Input':
-    st.header('INPUT')
+    st.subheader('INPUT')
     
     c1, c2, c3 = st.columns([0.3,0.3,0.4])  
     dflineSelect = algo.dfline.copy()
@@ -45,35 +61,56 @@ if menu == 'Input':
       
 if menu == 'Algo':       
     with st.expander("Params", True):
-        c1,c2,c3 = st.columns(3)
+        c1,c2,c3,c4,c5 = st.columns(5)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
-        algo.epoch = c2.number_input(label  = 'Iteration / run',value = 1, min_value = 1,  max_value  = 10,step = 1)
+        iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 10,step = 1)
         algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
+        txt = "pourcentage d'indiv selectionné avec la meilleur fitness pour crossover => donne 2 enfants"
+        algo.crossover = c4.number_input(label  = 'Crossover % ',value = int(algo.crossover*100), min_value = 0,  max_value  = 100,step = 10, help =txt)/100
+        txt = "pourcentage d'indiv selectionné avec la meilleur fitness pour mutation  => donne 1 enfants"
+        algo.mutation = c5.number_input(label  = 'Mutation % ',value = int(algo.mutation*100), min_value = 0,  max_value  = 100,step = 10, help =txt)/100
         session_state['algo'] = algo
         
-        c1,c2 = st.columns(2)        
+        c1,c2,c3 = st.columns(3)  
+            
         if c1.button('RESET'):
+            print('reset')
             # algo = load_data_brut(file)
             algo.df = indiv_init(algo, algo.pop)
             session_state['algo'] = algo    
       
         if c2.button('RUN'):
-            for i in range(algo.epoch):
+            print("run")
+            L = [] 
+            #Crossover
+            for i in range(iterations):
+                algo.epoch +=1
                 df1 = algo.df
                 df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
-                L = []      
-                List = df1[:7].index.values
-                np.random.shuffle(List)
-                # print(List)
+                idxmaxCross = int(df1.shape[0]*algo.crossover)
+                idxmaxMuta  = int(df1.shape[0]*algo.mutation)
+                if idxmaxCross <  2 : idxmaxCross = 2            
+                if idxmaxMuta ==  0 : idxmaxMuta = 1
+                Ncross   = int(idxmaxCross/2)
+                Nmuta    = int(idxmaxMuta)
+                # if Ncross == 0 : st.warning("⚠️ crossover %  too low for pop = {}".format(algo.pop))  
+                # if Nmuta == 0  : st.warning("⚠️ mutation  %  too low for pop = {}".format(algo.pop))                      
+                Lcross = df1[:idxmaxCross].index.values
+                np.random.shuffle(Lcross)
+                Lmuta = df1[:idxmaxMuta].index.values
+                np.random.shuffle(Lmuta)                
+                print(Lcross,idxmaxCross, Ncross,Lmuta, idxmaxMuta, Nmuta)
                 L = [] 
-                for n in range(3):    
-                    i1 , i2 = List[n*2] , List[n*2 + 1]
-                    # print(n,i1,i2)
+                for n in range(Ncross):    
+                    i1 , i2 = Lcross[n*2] , Lcross[n*2 + 1]
                     dfx = df1.loc[[i1,i2]].copy()
-                    L2 = Reprodution(dfx, algo)
-                    if L2 is not None :  
-                        L += L2   
-                        # algo.Nrepro +=1
+                    L2 = AG_CrossOver(dfx, algo)
+                    if L2 is not None : L += L2  
+                for n in range(Nmuta):
+                    row = df1.loc[Lmuta[n]].copy()
+                    indiv = Mutation(row, algo)
+                    L.append(indiv)
+            
                 dfx = pd.DataFrame(L)
                 algo.df = pd.concat([df1, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
                 session_state['algo'] = algo 
@@ -89,7 +126,9 @@ if menu == 'Algo':
         Col_drop   = Col_drop_1 + Col_drop_2
         # Col_drop = Col_drop_1
 
-    st.write('Pattern : ',str(algo.Comb) ,' ---------- N indivs Total : ',  str(algo.Nrepro), ' ---- indivs : ' , df1.shape)
+    st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
+             str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
+             '-params :',algo.pop,algo.epoch,algo.fitness, algo.crossover, algo.mutation)
     with st.expander("Dataframe", True):
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
         st.dataframe(df1.drop(columns= Col_drop).astype(str))
@@ -97,10 +136,9 @@ if menu == 'Algo':
     with st.expander("Plot", False):    
         c1, c2 = st.columns([0.3,0.7])   
         ListSelectbox = df1.index
-        index = st.selectbox('individu',ListSelectbox)
+        index = c2.selectbox('individu',ListSelectbox)
         row = df1.loc[index]
-        
-        
+                
         ElemsList = ['Clist','Elist','Plist']
         Elems = ['C','E','P']
         IDSelects = []
@@ -113,9 +151,9 @@ if menu == 'Algo':
         dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
 
         
-        if c2.checkbox('ALL combinaison') : 
-            dflineSelect = dfline.copy()
-            dfsSelect = dfs.copy()
+        # if c2.checkbox('ALL combinaison') : 
+        #     dflineSelect = dfline.copy()
+        #     dfsSelect = dfs.copy()
 
         fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
         c2.table(row.astype('string'))

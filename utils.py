@@ -17,8 +17,7 @@ from types import SimpleNamespace
 # def load_data(Size, time):
 #     return load_data_brut(Size)
 
-def load_data_brut(file):
-    print("begin")
+def load_data_brut(file, select = None):
     
     with open(file, 'r') as f:
       data = json.load(f)
@@ -49,14 +48,17 @@ def load_data_brut(file):
     dfline['ID'] = t.str[1] + dfline.end.astype(str) + '-' + t.str[0] + dfline.start.astype(str)
     dfline = dfline.sort_values('ID').reset_index(drop = True)
     
-    Comb_All = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict()
+    CombAll = dfslot.ID.tolist()
 
-    DropList = ['C0','E2']
+    # DropList = ['C0','E2']
     # DropList = []
-    if len(DropList) > 0 : 
-        dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
-        dfslot = dfslot[~dfslot.ID.isin(DropList)]
-    
+    # if len(DropList) > 0 : 
+    # if select is not None : 
+    #     dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
+    #     dfslot = dfslot[~dfslot.ID.isin(DropList)]
+    if select is not None : 
+        dfline = dfline[~dfline.ID.str.contains('|'.join(select))]
+        dfslot = dfslot[~dfslot.ID.isin(select)]  
     A0 = data['layers'][0]['data']
     height = data['height']
     A0 = np.array(A0).reshape(10,7)
@@ -70,6 +72,8 @@ def load_data_brut(file):
     algo = dict(
         pop = 50,
         fitness = 'dist',
+        crossover = 0.4,
+        mutation = 0.4,
         dfslot = dfslot,
         dfline = dfline,
         epoch = 0,
@@ -82,7 +86,7 @@ def load_data_brut(file):
         EV = 'E1',        
         confs = confs,
         Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
-        CombAll = Comb_All,
+        CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
         A0 = A0,
@@ -140,9 +144,11 @@ def indiv_create(algo, row = None, NewCtoE = None):
     
     algo.Nindiv += 1
     col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
-           'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE','dist_Connect', 'dist', 'Name','ID', 'Name_txt']
+           'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE',
+           'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
     l = [D, Clist, CtoE,Econnect,Elist,Ecount, EtoP,
-         Pconnect,Plist,Pcount, List_EtoC,List_PtoE,dist_Connect, dist, Name,algo.Nindiv, Name_txt]
+         Pconnect,Plist,Pcount, List_EtoC,List_PtoE,
+         dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
     algo.indivs.append(indiv)
@@ -192,8 +198,7 @@ def calcul_Masse_cout(indiv, algo):
     
     return  info, { 'Masse' : Masse, 'Cout' : Cout}
 
-def Reprodution(dfx, algo):
-    
+def AG_CrossOver(dfx, algo):    
     c1, c2 = copy.deepcopy(dfx.CtoE.values)
     
     if (c1 != c2).any():        
@@ -218,7 +223,18 @@ def Reprodution(dfx, algo):
             indiv['parent'] =  parents
             L.append(indiv)
         return L 
- 
+
+def Mutation(row, algo): 
+    NewCtoE = copy.deepcopy(row.CtoE)
+    idx = np.random.randint(len(NewCtoE))
+    D = algo.Comb
+    l = [e for e in D['E'] if e != NewCtoE[idx]]
+    e = np.random.choice(l,1)[0]
+    NewCtoE[idx] = e
+    indiv = indiv_create(algo, row,NewCtoE)
+    indiv['parent'] =  [row.ID]
+    return indiv
+
 def indiv_init(algo, pop):
     algo.Nindiv = 0 
     algo.indivs = []
