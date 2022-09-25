@@ -25,12 +25,12 @@ Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
 Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
-Col_drop_2 = ['CtoE','EtoP','Debit_s' , 'Debit_g', 'Pression_g', 'SumDebit_g']
+Col_drop_2 = ['CtoE','EtoP','Debit_s','Debit_g']
 Col_drop   = Col_drop_1 + Col_drop_2
 
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
 
-ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive']
+ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 if 'algo' not in session_state: 
     print('init')
@@ -56,11 +56,15 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         # ListCategorie = ['Pompe', 'Nozzle']
         col = st.columns(len(Clist) + 1)
         Nozzles = []
+        Group = []
         for i in range(len(Clist)):            
             c = Clist[i]
             # print(Ctype, i, c)
-            Nozzle =  col[i].selectbox('C' + str(c),Ctype, index = 0)
+            Nozzle =  col[i].selectbox('C' + str(c),Ctype, index = 0)            
             Nozzles.append(Nozzle)
+            
+            # if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)
+            
         Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"
             
         submitted = st.form_submit_button("Submit & Reset")      
@@ -72,13 +76,12 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
+            # algo.Group = Group
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
-
     
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
-
     
 if menu == 'Input':
     st.subheader('INPUT')
@@ -189,8 +192,9 @@ if menu == 'Algo':
         st.dataframe(dfx, use_container_width  =True)
                 
     with st.expander("Plot", False): 
+        Ncol = 3 if len(df1) >=3 else len(df1)
         col = st.columns(3)
-        for i in range(3):   
+        for i in range(Ncol):   
             c1, c2 = st.columns([0.3,0.7])   
             ListSelectbox = df1.index
             index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
@@ -212,6 +216,6 @@ if menu == 'Algo':
             #     dfsSelect = dfs.copy()
 
             fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
-            col[i].table(row.astype('string'))
+            col[i].dataframe(row.astype('string'),  use_container_width  =True)
                 
             col[i].pyplot(fig)

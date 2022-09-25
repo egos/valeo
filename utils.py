@@ -109,6 +109,7 @@ def load_data_brut(file, select = None):
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,
+        Group = [],
         Nlim = 2.0,   
         confs = confs,
         Clist = Clist,
@@ -182,7 +183,7 @@ def indiv_create(algo, row = None, NewCtoE = None):
     algo.indivs.append(indiv)
     algo.Nrepro +=1    
     # calcul debit
-    d =  Calcul_Debit(algo ,indiv, False)
+    d =  Calcul_Debit_S(algo ,indiv, False)
     col  = ['Pression', 'Debit','SumDebit']
     indiv.update({(c +'_s'): d[c] for c in col})
     d =  Calcul_Debit(algo ,indiv, True)
@@ -191,10 +192,14 @@ def indiv_create(algo, row = None, NewCtoE = None):
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
     
-    indiv['Alive'] = True
-    if (np.array(indiv['Pression_s']) < algo.Nlim).any() : indiv['Alive'] = False
-    if indiv['Ecount'] > algo.Pmax : indiv['Alive'] = False
+    # Cond = False
+    # for i, (e,EClist) in enumerate(Econnect.items()):
+    #     Cond+= np.isin(algo.Group,  EClist).all()
+    # indiv['Vg'] = Cond    
+    # indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
+    # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     
+    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']    
         
     return indiv
 
@@ -337,7 +342,7 @@ def plot_(algo,dflineSelect, dfsSelect, name):
 def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
     # d_EtoC = Dict_dist['EtoC']
     # d_PtoE = Dict_dist['PtoE']
-    p  = [-5.16e-04, -1.54e-02, 4.87]
+    p = [-5.16e-04, -1.54e-02, 4.87]
     p = algo.Pvals
     # p = [-6.61e-4,-0.0286,12.1]
     coef_E  = 7.64e-04
@@ -361,6 +366,53 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
     return dict(zip(key,val))
 
 def Calcul_Debit(algo ,indiv, group):
+    D = algo.Comb  
+    Group = algo.Group  
+    Clist = D['C']
+    Econnect = indiv['Econnect']
+    Pconnect = indiv['Pconnect']
+    EtoP = indiv['EtoP']
+    Pression = []
+    Debit = []
+    # Data = {}
+    Pression_C = []
+    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
+    Cpression = {}
+    grouped = False
+    for i, (e,EClist) in enumerate(Econnect.items()):
+        p = EtoP[i]
+        name = 'P{}-E{}'.format(p,e)
+        VerifGroup = np.isin(Group,  EClist)
+        EClistTotal = [EClist]
+        if VerifGroup.all() & (len(Group) > 0):
+            EClistTotal = [Group, [i for i in EClist if i not in Group]]          
+            grouped = True
+        for j,  EClist in enumerate(EClistTotal):
+            if j >0 : grouped = False
+            d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
+
+            d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+            res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
+            # Data[name] = res        
+            # Pression = Pression + list(res['Pi'])
+            Debit = Debit + list(res['Qi'])
+            Pi = list(res['Pi'])
+            PressionConnect = dict(zip(EClist, Pi))
+            Cpression.update(PressionConnect)
+            # print(dc,dp,Clist,list(res['Pi']))
+            Pression_C = Pression_C + [PressionConnect]
+            # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
+    Cpression = [Cpression[i] for i in D['C']]
+    # print(Cpression)
+    SumDebit = round(sum(Debit),1)
+    # keys = ['info','Data','Pression','Debit','SumDebit']
+    # vals = [info, Data,Pression, Debit, SumDebit]     
+    keys = ['Pression','Debit','SumDebit']
+    vals = [Cpression, Debit, SumDebit] 
+    return dict(zip(keys,vals))
+
+
+def Calcul_Debit_S(algo ,indiv, group):
     D = algo.Comb    
     Clist = D['C']
     Econnect = indiv['Econnect']
