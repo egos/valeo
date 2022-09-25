@@ -25,10 +25,12 @@ Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_Pto
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
 Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
-Col_drop_2 = ['Debit_s'] + ['Debit_g']
+Col_drop_2 = ['CtoE','EtoP','Debit_s' , 'Debit_g', 'Pression_g', 'SumDebit_g']
 Col_drop   = Col_drop_1 + Col_drop_2
 
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
+
+ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive']
 
 if 'algo' not in session_state: 
     print('init')
@@ -94,7 +96,7 @@ if menu == 'Input':
 if menu == 'Algo':  
     
     with st.expander("Params", True):
-        c1,c2,c3,c4,c5 = st.columns(5)
+        c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
         iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 10,step = 1)
         algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
@@ -102,6 +104,11 @@ if menu == 'Algo':
         algo.crossover = c4.number_input(label  = 'Crossover % ',value = int(algo.crossover*100), min_value = 0,  max_value  = 100,step = 10, help =txt)/100
         txt = "pourcentage d'indiv selectionné avec la meilleur fitness pour mutation  => donne 1 enfants"
         algo.mutation = c5.number_input(label  = 'Mutation % ',value = int(algo.mutation*100), min_value = 0,  max_value  = 100,step = 10, help =txt)/100
+        txt = "limite de pression pour nettoyer les capteurs"
+        algo.Nlim = c6.number_input(label  = 'Pression limite',value = algo.Nlim, min_value = 0.0,max_value = 5.0, step = 0.1, help =txt)
+        txt = "Maximum de pompe disponible"
+        options = list(range(1,len(algo.Comb['E']) +1 ))
+        algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
         
         c1,c2,c3 = st.columns(3)  
@@ -111,42 +118,45 @@ if menu == 'Algo':
             # algo = load_data_brut(file)
             algo.df = indiv_init(algo, algo.pop)
             session_state['algo'] = algo    
-      
-        if c2.button('RUN'):
-            print("Params : RUN")
-            L = [] 
-            #Crossover
-            for i in range(iterations):
-                algo.epoch +=1
-                df1 = algo.df
-                df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
-                idxmaxCross = int(df1.shape[0]*algo.crossover)
-                idxmaxMuta  = int(df1.shape[0]*algo.mutation)
-                if idxmaxCross <  2 : idxmaxCross = 2            
-                if idxmaxMuta ==  0 : idxmaxMuta = 1
-                Ncross   = int(idxmaxCross/2)
-                Nmuta    = int(idxmaxMuta)
-                # if Ncross == 0 : st.warning("⚠️ crossover %  too low for pop = {}".format(algo.pop))  
-                # if Nmuta == 0  : st.warning("⚠️ mutation  %  too low for pop = {}".format(algo.pop))                      
-                Lcross = df1[:idxmaxCross].index.values
-                np.random.shuffle(Lcross)
-                Lmuta = df1[:idxmaxMuta].index.values
-                np.random.shuffle(Lmuta)                
-                print(Lcross,idxmaxCross, Ncross,Lmuta, idxmaxMuta, Nmuta)
+        try :             
+            if c2.button('RUN'):
+                print("Params : RUN")
                 L = [] 
-                for n in range(Ncross):    
-                    i1 , i2 = Lcross[n*2] , Lcross[n*2 + 1]
-                    dfx = df1.loc[[i1,i2]].copy()
-                    L2 = AG_CrossOver(dfx, algo)
-                    if L2 is not None : L += L2  
-                for n in range(Nmuta):
-                    row = df1.loc[Lmuta[n]].copy()
-                    indiv = Mutation(row, algo)
-                    L.append(indiv)
-            
-                dfx = pd.DataFrame(L)
-                algo.df = pd.concat([df1, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
-                session_state['algo'] = algo 
+                #Crossover            
+                for i in range(iterations):
+                    algo.epoch +=1
+                    df0 = algo.df
+                    df0 = df0.sort_values(algo.fitness).reset_index(drop = True)
+                    df1 = df0[df0.Alive].copy()
+                    idxmaxCross = int(df1.shape[0]*algo.crossover)
+                    idxmaxMuta  = int(df1.shape[0]*algo.mutation)
+                    if idxmaxCross <  2 : idxmaxCross = 2            
+                    if idxmaxMuta ==  0 : idxmaxMuta = 1
+                    Ncross   = int(idxmaxCross/2)
+                    Nmuta    = int(idxmaxMuta)
+                    # if Ncross == 0 : st.warning("⚠️ crossover %  too low for pop = {}".format(algo.pop))  
+                    # if Nmuta == 0  : st.warning("⚠️ mutation  %  too low for pop = {}".format(algo.pop))                      
+                    Lcross = df1[:idxmaxCross].index.values
+                    np.random.shuffle(Lcross)
+                    Lmuta = df1[:idxmaxMuta].index.values
+                    np.random.shuffle(Lmuta)                
+                    # print(Lcross,idxmaxCross, Ncross,Lmuta, idxmaxMuta, Nmuta)
+                    L = [] 
+                    for n in range(Ncross):    
+                        i1 , i2 = Lcross[n*2] , Lcross[n*2 + 1]
+                        dfx = df1.loc[[i1,i2]].copy()
+                        L2 = AG_CrossOver(dfx, algo)
+                        if L2 is not None : L += L2  
+                    for n in range(Nmuta):
+                        row = df1.loc[Lmuta[n]].copy()
+                        indiv = Mutation(row, algo)
+                        L.append(indiv)
+                
+                    dfx = pd.DataFrame(L)
+                    algo.df = pd.concat([df0, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
+                    session_state['algo'] = algo 
+        except :
+            st.error('indiv population or params do not allow to initialize the algorithm', icon= '⚠️')
 
         df1 = algo.df
         df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
@@ -168,8 +178,15 @@ if menu == 'Algo':
         st.sidebar.table(s)
     
     with st.expander("Dataframe", True):
+
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
-        st.dataframe(df1.drop(columns= Col_drop).astype(str))
+        dfx = df1.drop(columns= Col_drop)
+        for col in dfx.columns:
+            if col not in ColDfVal : 
+                dfx[col]= dfx[col].astype(str)
+            else : 
+                if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)
+        st.dataframe(dfx, use_container_width  =True)
                 
     with st.expander("Plot", False):    
         c1, c2 = st.columns([0.3,0.7])   
@@ -187,7 +204,6 @@ if menu == 'Algo':
 
         dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
         dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
-
         
         # if c2.checkbox('ALL combinaison') : 
         #     dflineSelect = dfline.copy()

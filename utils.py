@@ -105,9 +105,11 @@ def load_data_brut(file, select = None):
         Tuyau = ['Ta'],
         Pompes = Pompes,
         Pvals = Pvals,
+        Pmax = 3,
         EV = ['Ea'],    
-        Nozzle  = Nozzles,  
-        Nvals = Nvals,  
+        Nozzles  = Nozzles,  
+        Nvals = Nvals,
+        Nlim = 2.0,   
         confs = confs,
         Clist = Clist,
         Comb = Comb,
@@ -178,8 +180,7 @@ def indiv_create(algo, row = None, NewCtoE = None):
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
     algo.indivs.append(indiv)
-    algo.Nrepro +=1
-    
+    algo.Nrepro +=1    
     # calcul debit
     d =  Calcul_Debit(algo ,indiv, False)
     col  = ['Pression', 'Debit','SumDebit']
@@ -189,6 +190,11 @@ def indiv_create(algo, row = None, NewCtoE = None):
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
+    
+    indiv['Alive'] = True
+    if (np.array(indiv['Pression_s']) < algo.Nlim).any() : indiv['Alive'] = False
+    if indiv['Ecount'] > algo.Pmax : indiv['Alive'] = False
+    
         
     return indiv
 
