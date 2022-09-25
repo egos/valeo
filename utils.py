@@ -171,10 +171,10 @@ def indiv_create(algo, row = None, NewCtoE = None):
     Name_txt = ','.join(Name)
     
     algo.Nindiv += 1
-    col = ['D', 'Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
+    col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
            'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE',
            'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
-    l = [D, Clist, CtoE,Econnect,Elist,Ecount, EtoP,
+    l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
          Pconnect,Plist,Pcount, List_EtoC,List_PtoE,
          dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
     # indiv = SimpleNamespace(**dict(zip(col,l)))

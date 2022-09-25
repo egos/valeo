@@ -21,7 +21,7 @@ file = 'VALEO_full.tmj'
 Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10      
 
-Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
+Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
 Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
@@ -193,7 +193,7 @@ if menu == 'Algo':
         for i in range(3):   
             c1, c2 = st.columns([0.3,0.7])   
             ListSelectbox = df1.index
-            index = col[i].selectbox('indiv detail ' + str(i),ListSelectbox)
+            index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
             row = df1.loc[index]
                     
             ElemsList = ['Clist','Elist','Plist']
