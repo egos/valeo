@@ -196,10 +196,11 @@ def indiv_create(algo, row = None, NewCtoE = None):
     # for i, (e,EClist) in enumerate(Econnect.items()):
     #     Cond+= np.isin(algo.Group,  EClist).all()
     # indiv['Vg'] = Cond    
-    # indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
-    # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
+    indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
+    indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     
-    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']    
+    indiv['Alive'] = indiv['Vp']&indiv['Vnp']  
+    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']      
         
     return indiv
 
