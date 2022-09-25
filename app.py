@@ -28,7 +28,7 @@ Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
 Col_drop_2 = ['Debit_s'] + ['Debit_g']
 Col_drop   = Col_drop_1 + Col_drop_2
 
-keydrop= ["confs", "dfslot","dfline","indivs","df",'A0']
+keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
 
 if 'algo' not in session_state: 
     print('init')
@@ -65,7 +65,11 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         if submitted:
             algo = load_data_brut(file, select)
             algo.Nozzle = Nozzles
-            algo.Pompe  = [Pompe] * len(Comb['P'])
+            algo.Pompes  = [Pompe] * len(algo.Comb['P'])
+            algo.Pvals =  [algo.DataCategorie['Pompe']['Values'][Pompe][i] for i in ['a','b','c']]
+            algo.Nozzles = Nozzles
+            Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
+            algo.Nvals = dict(zip(Clist, Nvals))
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
@@ -156,10 +160,12 @@ if menu == 'Algo':
              str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
              '-params :',algo.pop,algo.epoch,algo.fitness, algo.crossover, algo.mutation)
     
-    if st.sidebar.checkbox("Show Conf files :"):
-        
+    if st.sidebar.checkbox("Show Conf files :"):        
         d = {k : v for k,v in vars(algo).items() if k not in keydrop}
-        st.sidebar.json(d, expanded=True) 
+        s = pd.Series(d).rename('Val').astype(str)
+        s.index = s.index.astype(str)
+        # st.sidebar.json(d, expanded=True) 
+        st.sidebar.table(s)
     
     with st.expander("Dataframe", True):
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)

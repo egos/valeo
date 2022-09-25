@@ -78,8 +78,17 @@ def load_data_brut(file, select = None):
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
                     }   
-        
+    
+    
     Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict()
+    Clist = Comb['C']
+    Pompes  = [DataCategorie['Pompe']['Unique'][0]]* len(Comb['P'])
+    Pvals   = [DataCategorie['Pompe']['Values'][Pompes[0]][i] for i in ['a','b','c']]
+    Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
+    Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
+    Nvals  = dict(zip(Clist, Nvals))
+    
+    
     algo = dict(
         pop = 50,
         fitness = 'dist',
@@ -94,11 +103,13 @@ def load_data_brut(file, select = None):
         df = [],
         DataCategorie =  DataCategorie,
         Tuyau = ['Ta'],
-        Pompe = [DataCategorie['Pompe']['Unique'][0]] * len(Comb['P']) ,
+        Pompes = Pompes,
+        Pvals = Pvals,
         EV = ['Ea'],    
-        Nozzle  = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C']),    
+        Nozzle  = Nozzles,  
+        Nvals = Nvals,  
         confs = confs,
-        Clist = Comb['C'],
+        Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
@@ -189,7 +200,7 @@ def calcul_Masse_cout(indiv, algo):
     for Categorie in ['Pompe', 'Tuyau','EV']:
         if Categorie == 'Pompe' : 
             Factor = indiv['Ecount']
-            Name = algo.Pompe
+            Name = [algo.Pompes[0]]
         if Categorie == 'Tuyau' :
             Factor = indiv['dist']
             Name = algo.Tuyau
@@ -317,14 +328,15 @@ def plot_(algo,dflineSelect, dfsSelect, name):
         f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
     return fig
 
-def debit(d_EtoC_list,d_PtoE,Clist, group = True):
+def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
     # d_EtoC = Dict_dist['EtoC']
     # d_PtoE = Dict_dist['PtoE']
     p  = [-5.16e-04, -1.54e-02, 4.87]
+    p = algo.Pvals
     # p = [-6.61e-4,-0.0286,12.1]
     coef_E  = 7.64e-04
     coef_C  = 0.036
-    coef_C  = [0.036  if c!=3 else 0.0017 for c in Clist]
+    coef_C  = [algo.Nvals[i] for i in Clist]
     coef_C  = np.array(coef_C)
     coef_d  = 2.35e-04    
     
@@ -343,6 +355,8 @@ def debit(d_EtoC_list,d_PtoE,Clist, group = True):
     return dict(zip(key,val))
 
 def Calcul_Debit(algo ,indiv, group):
+    D = algo.Comb    
+    Clist = D['C']
     Econnect = indiv['Econnect']
     Pconnect = indiv['Pconnect']
     EtoP = indiv['EtoP']
@@ -351,26 +365,30 @@ def Calcul_Debit(algo ,indiv, group):
     # Data = {}
     Pression_C = []
     # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
-    for i, (e,Clist) in enumerate(Econnect.items()):
+    Cpression = {}
+    for i, (e,EClist) in enumerate(Econnect.items()):
         p = EtoP[i]
         name = 'P{}-E{}'.format(p,e)
-        d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in Clist])
+        d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
         d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
         # info = [i,e,Clist, p, d_EtoC_list, d_PtoE]
         # Dict_dist = {'EtoC': dist_EtoC,'PtoE':dist_PtoE }
-        res = debit(d_EtoC_list,d_PtoE, Clist, group)
+        res = debit(algo, d_EtoC_list,d_PtoE, EClist, group)
         # Data[name] = res        
-        
         # Pression = Pression + list(res['Pi'])
         Debit = Debit + list(res['Qi'])
+        Pi = list(res['Pi'])
+        PressionConnect = dict(zip(EClist, Pi))
+        Cpression.update(PressionConnect)
         # print(dc,dp,Clist,list(res['Pi']))
-        Pression_C = Pression_C + [dict(zip(Clist, list(res['Pi'])))]
+        Pression_C = Pression_C + [PressionConnect]
+    Cpression = [Cpression[i] for i in D['C']]
     SumDebit = round(sum(Debit),1)
     # keys = ['info','Data','Pression','Debit','SumDebit']
     # vals = [info, Data,Pression, Debit, SumDebit] 
     
     keys = ['Pression','Debit','SumDebit']
-    vals = [Pression_C, Debit, SumDebit] 
+    vals = [Cpression, Debit, SumDebit] 
     return dict(zip(keys,vals))
 
 
