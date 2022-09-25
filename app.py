@@ -188,28 +188,30 @@ if menu == 'Algo':
                 if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)
         st.dataframe(dfx, use_container_width  =True)
                 
-    with st.expander("Plot", False):    
-        c1, c2 = st.columns([0.3,0.7])   
-        ListSelectbox = df1.index
-        index = c2.selectbox('individu',ListSelectbox)
-        row = df1.loc[index]
-                
-        ElemsList = ['Clist','Elist','Plist']
-        Elems = ['C','E','P']
-        IDSelects = []
-        List_EtoC = row.List_EtoC
-        List_PtoE = row.List_PtoE
-        for n in range(3):
-            IDSelects+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
+    with st.expander("Plot", False): 
+        col = st.columns(3)
+        for i in range(3):   
+            c1, c2 = st.columns([0.3,0.7])   
+            ListSelectbox = df1.index
+            index = col[i].selectbox('indiv detail ' + str(i),ListSelectbox)
+            row = df1.loc[index]
+                    
+            ElemsList = ['Clist','Elist','Plist']
+            Elems = ['C','E','P']
+            IDSelects = []
+            List_EtoC = row.List_EtoC
+            List_PtoE = row.List_PtoE
+            for n in range(3):
+                IDSelects+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
 
-        dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
-        dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
-        
-        # if c2.checkbox('ALL combinaison') : 
-        #     dflineSelect = dfline.copy()
-        #     dfsSelect = dfs.copy()
-
-        fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
-        c2.table(row.astype('string'))
+            dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
+            dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
             
-        c1.pyplot(fig)
+            # if c2.checkbox('ALL combinaison') : 
+            #     dflineSelect = dfline.copy()
+            #     dfsSelect = dfs.copy()
+
+            fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
+            col[i].table(row.astype('string'))
+                
+            col[i].pyplot(fig)
