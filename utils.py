@@ -68,7 +68,18 @@ def load_data_brut(file, select = None):
     A0[A0 == unique[1]] = 1
     
     confs = pd.read_excel('test.xlsx')
-    
+    DataCategorie = {}
+    mask = confs['Actif'].notnull()
+    df = confs[mask].copy()
+    for Categorie in df.Categorie.unique():
+        
+        dfx = df[df.Categorie == Categorie]
+        DataCategorie[Categorie] = {
+            'Unique' : dfx.Name.unique().tolist(),
+            'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
+                    }   
+        
+    Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict()
     algo = dict(
         pop = 50,
         fitness = 'dist',
@@ -81,11 +92,14 @@ def load_data_brut(file, select = None):
         Nrepro = 0,
         indivs = [],
         df = [],
-        Tuyau = 'T1',
-        Pompe = 'P1',
-        EV = 'E1',        
+        DataCategorie =  DataCategorie,
+        Tuyau = ['Ta'],
+        Pompe = [DataCategorie['Pompe']['Unique'][0]] * len(Comb['P']) ,
+        EV = ['Ea'],    
+        Nozzle  = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C']),    
         confs = confs,
-        Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict(),
+        Clist = Comb['C'],
+        Comb = Comb,
         CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
@@ -116,7 +130,8 @@ def indiv_create(algo, row = None, NewCtoE = None):
     if row is not None :  
         if Ecount > row.Ecount:
             # print(D['P'],Ecount - row.Ecount)
-            NewEtoP = np.random.randint(0,len(D['P']),Ecount - row.Ecount)
+            # NewEtoP = np.random.randint(0,len(D['P']),Ecount - row.Ecount)
+            NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
             EtoP = np.append(row.EtoP, NewEtoP)
         elif Ecount < row.Ecount : 
             EtoP = np.random.choice(row.EtoP,Ecount)
@@ -163,11 +178,39 @@ def indiv_create(algo, row = None, NewCtoE = None):
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
-
         
     return indiv
 
 def calcul_Masse_cout(indiv, algo): 
+    dmasse = {}
+    dcout = {}
+    # confs = algo.confs
+
+    for Categorie in ['Pompe', 'Tuyau','EV']:
+        if Categorie == 'Pompe' : 
+            Factor = indiv['Ecount']
+            Name = algo.Pompe
+        if Categorie == 'Tuyau' :
+            Factor = indiv['dist']
+            Name = algo.Tuyau
+        if Categorie == 'EV' :
+            Ccount = len(algo.Comb['C'])
+            Factor = Ccount
+            Name = algo.EV  
+            
+        v = algo.DataCategorie[Categorie]['Values']
+        dmasse[Categorie] = int(sum([Factor *v[n]['Masse'] for n in Name]))
+        dcout[Categorie]  = int(sum([Factor *v[n]['Cout']  for n in Name]))
+        
+    dmasse['Reservoir'] = 600
+    dcout['Reservoir']  = 30  
+    info = [dmasse, dcout]
+    Masse = round(sum(dmasse.values()),2)
+    Cout = round(sum(dcout.values()),2)
+    
+    return  info, { 'Masse' : Masse, 'Cout' : Cout}
+
+def calcul_Masse_cout_S(indiv, algo): 
     dmasse = {}
     dcout = {}
     confs = algo.confs
@@ -274,16 +317,19 @@ def plot_(algo,dflineSelect, dfsSelect, name):
         f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
     return fig
 
-def debit(Dict_dist, group = True):
-    d_EtoC = Dict_dist['EtoC']
-    d_PtoE = Dict_dist['PtoE']
+def debit(d_EtoC_list,d_PtoE,Clist, group = True):
+    # d_EtoC = Dict_dist['EtoC']
+    # d_PtoE = Dict_dist['PtoE']
     p  = [-5.16e-04, -1.54e-02, 4.87]
+    # p = [-6.61e-4,-0.0286,12.1]
     coef_E  = 7.64e-04
     coef_C  = 0.036
+    coef_C  = [0.036  if c!=3 else 0.0017 for c in Clist]
+    coef_C  = np.array(coef_C)
     coef_d  = 2.35e-04    
     
-    A = coef_E + d_EtoC * coef_d + coef_C 
-    Z =( A**-0.5).sum() if group else A**-0.5
+    A = coef_E + d_EtoC_list * coef_d + coef_C 
+    Z = ( A**-0.5).sum() if group else A**-0.5
     As , Bs, Cs = p[0] - (coef_d * d_PtoE) - 1/(Z**2), p[1] , p[2]
     delta = (Bs**2) - (4 * As * Cs)
     Qt  = np.array((- Bs - delta**0.5)/(2*As))
@@ -302,24 +348,29 @@ def Calcul_Debit(algo ,indiv, group):
     EtoP = indiv['EtoP']
     Pression = []
     Debit = []
-    Data = {}
-    # on loop sur chaque EV pour remonter pompe EV capteur 
+    # Data = {}
+    Pression_C = []
+    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
     for i, (e,Clist) in enumerate(Econnect.items()):
         p = EtoP[i]
         name = 'P{}-E{}'.format(p,e)
-        dc = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in Clist])
-        dp = algo.dist['P{}-E{}'.format(p,e)]
-        info = [i,e,Clist, p, dc, dp]
-        Dict_dist = {'EtoC': dc,'PtoE':dp }
-        res = debit(Dict_dist, group)
-        Data[name] = res
-        Pression = Pression + list(res['Pi'])
+        d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in Clist])
+        d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+        # info = [i,e,Clist, p, d_EtoC_list, d_PtoE]
+        # Dict_dist = {'EtoC': dist_EtoC,'PtoE':dist_PtoE }
+        res = debit(d_EtoC_list,d_PtoE, Clist, group)
+        # Data[name] = res        
+        
+        # Pression = Pression + list(res['Pi'])
         Debit = Debit + list(res['Qi'])
+        # print(dc,dp,Clist,list(res['Pi']))
+        Pression_C = Pression_C + [dict(zip(Clist, list(res['Pi'])))]
     SumDebit = round(sum(Debit),1)
     # keys = ['info','Data','Pression','Debit','SumDebit']
     # vals = [info, Data,Pression, Debit, SumDebit] 
+    
     keys = ['Pression','Debit','SumDebit']
-    vals = [Pression, Debit, SumDebit] 
+    vals = [Pression_C, Debit, SumDebit] 
     return dict(zip(keys,vals))
 
 

@@ -19,9 +19,16 @@ st.set_page_config(page_title = "_IHM", layout="wide")
 print('BEGIN')
 file = 'VALEO_full.tmj'
 Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
-pop = 10
-        
+pop = 10      
 
+Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
+Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
+Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
+Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
+Col_drop_2 = ['Debit_s'] + ['Debit_g']
+Col_drop   = Col_drop_1 + Col_drop_2
+
+keydrop= ["confs", "dfslot","dfline","indivs","df",'A0']
 
 if 'algo' not in session_state: 
     print('init')
@@ -30,21 +37,42 @@ if 'algo' not in session_state:
     session_state['algo'] = algo
 else : 
     algo = session_state['algo']
-
-with st.form("my_form"):  
-    select = st.multiselect('select',algo.CombAll, algo.CombAll)
-    select = [s for s in algo.CombAll if s not in select]
-    print(select)
-    if select == [] : select = None
-    submitted = st.form_submit_button("Submit")
-    if submitted:
-        algo = load_data_brut(file, select)
-        algo.df = indiv_init(algo, pop)
-        session_state['algo'] = algo
-        print('submitted')
+with st.expander('Options : 🖱️ press submit for change take effect', True):
+    with st.form("Pattern"):  
+        select = st.multiselect('Pattern',algo.CombAll, algo.CombAll)
+        select = [s for s in algo.CombAll if s not in select]
+        if select == [] : select = None
+        submitted = st.form_submit_button("Submit & Reset")        
+        if submitted:
+            algo = load_data_brut(file, select)
+            algo.df = indiv_init(algo, pop)
+            session_state['algo'] = algo
+            print('submitted : Pattern')
+    with st.form("Elements Type"):         
+        Clist = algo.Clist     
+        Ctype = algo.DataCategorie['Nozzle']['Unique']        
+        # ListCategorie = ['Pompe', 'Nozzle']
+        col = st.columns(len(Clist) + 1)
+        Nozzles = []
+        for i in range(len(Clist)):            
+            c = Clist[i]
+            # print(Ctype, i, c)
+            Nozzle =  col[i].selectbox('C' + str(c),Ctype, index = 0)
+            Nozzles.append(Nozzle)
+        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"
+            
+        submitted = st.form_submit_button("Submit & Reset")      
+        if submitted:
+            algo = load_data_brut(file, select)
+            algo.Nozzle = Nozzles
+            algo.Pompe  = [Pompe] * len(Comb['P'])
+            algo.df = indiv_init(algo, pop)
+            session_state['algo'] = algo
+            print('submitted : Elements Type')
 
     
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
+
     
 if menu == 'Input':
     st.subheader('INPUT')
@@ -59,7 +87,8 @@ if menu == 'Input':
     c1.pyplot(fig)
     st.table(algo.confs)
       
-if menu == 'Algo':       
+if menu == 'Algo':  
+    
     with st.expander("Params", True):
         c1,c2,c3,c4,c5 = st.columns(5)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
@@ -74,13 +103,13 @@ if menu == 'Algo':
         c1,c2,c3 = st.columns(3)  
             
         if c1.button('RESET'):
-            print('reset')
+            print('Params : RESET')
             # algo = load_data_brut(file)
             algo.df = indiv_init(algo, algo.pop)
             session_state['algo'] = algo    
       
         if c2.button('RUN'):
-            print("run")
+            print("Params : RUN")
             L = [] 
             #Crossover
             for i in range(iterations):
@@ -120,15 +149,18 @@ if menu == 'Algo':
         dfs = algo.dfslot
         dfline = algo.dfline
 
-        Col_drop_1 = ['Clist','D','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
-        Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
-        Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
-        Col_drop   = Col_drop_1 + Col_drop_2
+
         # Col_drop = Col_drop_1
 
     st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
              str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
              '-params :',algo.pop,algo.epoch,algo.fitness, algo.crossover, algo.mutation)
+    
+    if st.sidebar.checkbox("Show Conf files :"):
+        
+        d = {k : v for k,v in vars(algo).items() if k not in keydrop}
+        st.sidebar.json(d, expanded=True) 
+    
     with st.expander("Dataframe", True):
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
         st.dataframe(df1.drop(columns= Col_drop).astype(str))
