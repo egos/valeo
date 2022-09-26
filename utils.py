@@ -94,6 +94,9 @@ def load_data_brut(file, select = None):
         fitness = 'dist',
         crossover = 0.4,
         mutation = 0.4,
+        Nlim = 2.0,          
+        Pmax = 3,
+        Plot = False,
         dfslot = dfslot,
         dfline = dfline,
         epoch = 0,
@@ -103,14 +106,12 @@ def load_data_brut(file, select = None):
         df = [],
         DataCategorie =  DataCategorie,
         Tuyau = ['Ta'],
-        Pompes = Pompes,
-        Pvals = Pvals,
-        Pmax = 3,
+        Pompes = Pompes, 
+        Pvals = Pvals,     
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,
-        Group = [],
-        Nlim = 2.0,   
+        Group = [],         
         confs = confs,
         Clist = Clist,
         Comb = Comb,
@@ -118,6 +119,7 @@ def load_data_brut(file, select = None):
         dist = dfline.set_index('ID').dist.to_dict(),
         height = data['height'],
         A0 = A0,
+        
     )
     algo = SimpleNamespace(**algo)
     return algo
@@ -183,11 +185,11 @@ def indiv_create(algo, row = None, NewCtoE = None):
     algo.indivs.append(indiv)
     algo.Nrepro +=1    
     # calcul debit
-    d =  Calcul_Debit_S(algo ,indiv, False)
+    d =  Calcul_Debit(algo ,indiv, False)
     col  = ['Pression', 'Debit','SumDebit']
     indiv.update({(c +'_s'): d[c] for c in col})
-    d =  Calcul_Debit(algo ,indiv, True)
-    indiv.update({(c +'_g'): d[c] for c in col})
+    # d =  Calcul_Debit(algo ,indiv, True)
+    # indiv.update({(c +'_g'): d[c] for c in col})
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
@@ -384,6 +386,52 @@ def Calcul_Debit(algo ,indiv, group):
         p = EtoP[i]
         name = 'P{}-E{}'.format(p,e)
         VerifGroup = np.isin(Group,  EClist)
+        # EClistTotal = [EClist]
+        # if VerifGroup.all() & (len(Group) > 0):
+        EClistTotal = [[i for i in EClist if i in Group], [i for i in EClist if i not in Group]]          
+        grouped = True
+        for j,  EClist in enumerate(EClistTotal):
+            if j >0 : grouped = False
+            if len(Clist)>0:
+                d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
+                d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+                res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
+                # Data[name] = res        
+                # Pression = Pression + list(res['Pi'])
+                Debit = Debit + list(res['Qi'])
+                Pi = list(res['Pi'])
+                PressionConnect = dict(zip(EClist, Pi))
+                Cpression.update(PressionConnect)
+                # print(dc,dp,Clist,list(res['Pi']))
+                Pression_C = Pression_C + [PressionConnect]
+                print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
+    Cpression = [Cpression[i] for i in D['C']]
+    print(Cpression)
+    SumDebit = round(sum(Debit),1)
+    # keys = ['info','Data','Pression','Debit','SumDebit']
+    # vals = [info, Data,Pression, Debit, SumDebit]     
+    keys = ['Pression','Debit','SumDebit']
+    vals = [Cpression, Debit, SumDebit] 
+    return dict(zip(keys,vals))
+
+def Calcul_Debit_S2(algo ,indiv, group):
+    D = algo.Comb  
+    Group = algo.Group  
+    Clist = D['C']
+    Econnect = indiv['Econnect']
+    Pconnect = indiv['Pconnect']
+    EtoP = indiv['EtoP']
+    Pression = []
+    Debit = []
+    # Data = {}
+    Pression_C = []
+    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
+    Cpression = {}
+    grouped = False
+    for i, (e,EClist) in enumerate(Econnect.items()):
+        p = EtoP[i]
+        name = 'P{}-E{}'.format(p,e)
+        VerifGroup = np.isin(Group,  EClist)
         EClistTotal = [EClist]
         if VerifGroup.all() & (len(Group) > 0):
             EClistTotal = [Group, [i for i in EClist if i not in Group]]          
@@ -411,7 +459,6 @@ def Calcul_Debit(algo ,indiv, group):
     keys = ['Pression','Debit','SumDebit']
     vals = [Cpression, Debit, SumDebit] 
     return dict(zip(keys,vals))
-
 
 def Calcul_Debit_S(algo ,indiv, group):
     D = algo.Comb    

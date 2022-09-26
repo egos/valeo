@@ -25,7 +25,7 @@ Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
 Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
-Col_drop_2 = ['CtoE','EtoP','Debit_s','Debit_g']
+Col_drop_2 = ['CtoE','EtoP','Debit_s']
 Col_drop   = Col_drop_1 + Col_drop_2
 
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
@@ -63,7 +63,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             Nozzle =  col[i].selectbox('C' + str(c),Ctype, index = 0)            
             Nozzles.append(Nozzle)
             
-            # if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)
+            if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)
             
         Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"
             
@@ -76,7 +76,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
-            # algo.Group = Group
+            algo.Group = Group
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
@@ -160,7 +160,7 @@ if menu == 'Algo':
                     session_state['algo'] = algo 
         except :
             st.error('indiv population or params do not allow to initialize the algorithm', icon= '⚠️')
-
+        algo.Plot = c3.checkbox('Compute plot section', value = False)
         df1 = algo.df
         df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
         dfs = algo.dfslot
@@ -181,7 +181,6 @@ if menu == 'Algo':
         st.sidebar.table(s)
     
     with st.expander("Dataframe", True):
-
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
         dfx = df1.drop(columns= Col_drop)
         for col in dfx.columns:
@@ -194,28 +193,29 @@ if menu == 'Algo':
     with st.expander("Plot", False): 
         Ncol = 3 if len(df1) >=3 else len(df1)
         col = st.columns(3)
-        for i in range(Ncol):   
-            c1, c2 = st.columns([0.3,0.7])   
-            ListSelectbox = df1.index
-            index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
-            row = df1.loc[index]
-                    
-            ElemsList = ['Clist','Elist','Plist']
-            Elems = ['C','E','P']
-            IDSelects = []
-            List_EtoC = row.List_EtoC
-            List_PtoE = row.List_PtoE
-            for n in range(3):
-                IDSelects+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
+        if algo.Plot:             
+            for i in range(Ncol):   
+                c1, c2 = st.columns([0.3,0.7])   
+                ListSelectbox = df1.index
+                index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
+                row = df1.loc[index]
+                        
+                ElemsList = ['Clist','Elist','Plist']
+                Elems = ['C','E','P']
+                IDSelects = []
+                List_EtoC = row.List_EtoC
+                List_PtoE = row.List_PtoE
+                for n in range(3):
+                    IDSelects+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
 
-            dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
-            dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
-            
-            # if c2.checkbox('ALL combinaison') : 
-            #     dflineSelect = dfline.copy()
-            #     dfsSelect = dfs.copy()
-
-            fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
-            col[i].dataframe(row.astype('string'),  use_container_width  =True)
+                dflineSelect = dfline[dfline.ID.isin(row.Name)].copy()
+                dfsSelect    = dfs[dfs.ID.isin(IDSelects)].copy()
                 
-            col[i].pyplot(fig)
+                # if c2.checkbox('ALL combinaison') : 
+                #     dflineSelect = dfline.copy()
+                #     dfsSelect = dfs.copy()
+
+                fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
+                col[i].dataframe(row.astype('string'),  use_container_width  =True)
+                    
+                col[i].pyplot(fig)
