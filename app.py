@@ -25,8 +25,12 @@ Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
 Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
 Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
-Col_drop_2 = ['CtoE','EtoP','Debit_s']
-Col_drop   = Col_drop_1 + Col_drop_2
+Col_drop_2 = ['CtoE','EtoP']
+Col_drop   = []
+
+
+ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
+ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
 
@@ -86,6 +90,12 @@ menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 if menu == 'Input':
     st.subheader('INPUT')
     
+    Col1 = ['a','b','c']
+    Format = dict(zip(Col1,["{:.2e}"]))
+    Format.update(dict(zip(['Masse','Cout'],["{:.0f}",  "{:,.2f}"])))
+    Input = algo.confs.copy()
+    st.table(Input.style.format(Format, na_rep=' '))
+    
     c1, c2, c3 = st.columns([0.3,0.3,0.4])  
     dflineSelect = algo.dfline.copy()
     dfsSelect = algo.dfslot.copy()
@@ -93,8 +103,8 @@ if menu == 'Input':
     fig = plot_(algo,dflineSelect, dfsSelect, 'Input')     
     c2.table(dflineSelect.astype('string').drop(columns = ['polyline','long']))  
     c3.table(dfsSelect.astype('string'))
-    c1.pyplot(fig)
-    st.table(algo.confs)
+    c1.pyplot(fig)  
+    
       
 if menu == 'Algo':  
     
@@ -114,16 +124,16 @@ if menu == 'Algo':
         algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
         
-        c1,c2,c3 = st.columns(3)  
+        c1,c2,c3,c4, c5  = st.columns(5)  
             
         if c1.button('RESET'):
             print('Params : RESET')
             # algo = load_data_brut(file)
             algo.df = indiv_init(algo, algo.pop)
-            session_state['algo'] = algo    
-        try :             
-            if c2.button('RUN'):
-                print("Params : RUN")
+            session_state['algo'] = algo             
+        if c2.button('RUN'):
+            print("Params : RUN")
+            try :                      
                 L = [] 
                 #Crossover            
                 for i in range(iterations):
@@ -158,9 +168,11 @@ if menu == 'Algo':
                     dfx = pd.DataFrame(L)
                     algo.df = pd.concat([df0, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
                     session_state['algo'] = algo 
-        except :
-            st.error('indiv population or params do not allow to initialize the algorithm', icon= '⚠️')
-        algo.Plot = c3.checkbox('Compute plot section', value = False)
+            except :
+                st.warning('nombre individu vivant insuffisant pour Crossover et/ou Mutation ', icon= '⚠️')
+        algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
+        if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
+        if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
         df1 = algo.df
         df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
         dfs = algo.dfslot
@@ -191,8 +203,12 @@ if menu == 'Algo':
         st.dataframe(dfx, use_container_width  =True)
                 
     with st.expander("Plot", False): 
-        Ncol = 3 if len(df1) >=3 else len(df1)
-        col = st.columns(3)
+        c1 , c2 = st.columns(2)
+        MinCol = 3 if  len(df1) >= 3 else len(df1)
+        Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1)
+        # Ncol = 3 if len(df1) >=3 else len(df1)
+        Ncolmin  = 4 if Ncol < 4 else Ncol
+        col = st.columns(Ncolmin)
         if algo.Plot:             
             for i in range(Ncol):   
                 c1, c2 = st.columns([0.3,0.7])   
@@ -216,6 +232,6 @@ if menu == 'Algo':
                 #     dfsSelect = dfs.copy()
 
                 fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
-                col[i].dataframe(row.astype('string'),  use_container_width  =True)
+                col[i].dataframe(row.drop(labels= Col_drop + ColAlgo).astype('str'),  use_container_width  =True)
                     
                 col[i].pyplot(fig)

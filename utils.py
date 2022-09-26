@@ -87,9 +87,9 @@ def load_data_brut(file, select = None):
     Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
     Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
     Nvals  = dict(zip(Clist, Nvals))
-    
-    
+        
     algo = dict(
+        Group = [],
         pop = 50,
         fitness = 'dist',
         crossover = 0.4,
@@ -111,7 +111,7 @@ def load_data_brut(file, select = None):
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,
-        Group = [],         
+               
         confs = confs,
         Clist = Clist,
         Comb = Comb,
@@ -131,8 +131,14 @@ def indiv_create(algo, row = None, NewCtoE = None):
     Clist = D['C']
     Ccount = len(D['C'])
     
+    
+    Elist = D['E']
+    if len(D['E']) >  algo.Pmax : Elist = np.random.choice(Elist,algo.Pmax)
+    
     if NewCtoE is not None : CtoE = NewCtoE
-    else : CtoE = np.random.choice(D['E'],Ccount)
+    else : CtoE = np.random.choice(Elist,Ccount)
+    # else : CtoE = np.random.choice(D['E'],Ccount)
+
     
     d = collections.defaultdict(list)
     for i in range(Ccount): 
@@ -186,8 +192,9 @@ def indiv_create(algo, row = None, NewCtoE = None):
     algo.Nrepro +=1    
     # calcul debit
     d =  Calcul_Debit(algo ,indiv, False)
-    col  = ['Pression', 'Debit','SumDebit']
-    indiv.update({(c +'_s'): d[c] for c in col})
+    # col  = ['PressionList', 'DebitList','Debit']
+    # indiv.update({(c): d[c] for c in col})
+    indiv.update(d)
     # d =  Calcul_Debit(algo ,indiv, True)
     # indiv.update({(c +'_g'): d[c] for c in col})
     
@@ -198,10 +205,10 @@ def indiv_create(algo, row = None, NewCtoE = None):
     # for i, (e,EClist) in enumerate(Econnect.items()):
     #     Cond+= np.isin(algo.Group,  EClist).all()
     # indiv['Vg'] = Cond    
-    indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
-    indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
+    # indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
+    # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     
-    indiv['Alive'] = indiv['Vp']&indiv['Vnp']  
+    indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nlim).any() else True 
     # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']      
         
     return indiv
@@ -391,8 +398,8 @@ def Calcul_Debit(algo ,indiv, group):
         EClistTotal = [[i for i in EClist if i in Group], [i for i in EClist if i not in Group]]          
         grouped = True
         for j,  EClist in enumerate(EClistTotal):
-            if j >0 : grouped = False
-            if len(Clist)>0:
+            if j >0 : grouped = False # bascule a No group apres le passage group 
+            if len(EClist)>0: # bug avec calcul array
                 d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
                 d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
                 res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
@@ -404,13 +411,13 @@ def Calcul_Debit(algo ,indiv, group):
                 Cpression.update(PressionConnect)
                 # print(dc,dp,Clist,list(res['Pi']))
                 Pression_C = Pression_C + [PressionConnect]
-                print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
+                # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
     Cpression = [Cpression[i] for i in D['C']]
-    print(Cpression)
+    # print(Cpression)
     SumDebit = round(sum(Debit),1)
     # keys = ['info','Data','Pression','Debit','SumDebit']
     # vals = [info, Data,Pression, Debit, SumDebit]     
-    keys = ['Pression','Debit','SumDebit']
+    keys = ['PressionList','DebitList','Debit']
     vals = [Cpression, Debit, SumDebit] 
     return dict(zip(keys,vals))
 
