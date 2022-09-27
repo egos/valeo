@@ -174,7 +174,7 @@ if menu == 'Algo':
         if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
         if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
         
-        NameIndiv = st.text_input('indiv generation par nom', '', help = 'genere des indiv avec leur noms ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1').replace(" ",'').split(';')
+        NameIndiv = st.text_input('indiv generation par nom', '', help = 'permet de generer des indivs avec leur Name ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1').replace(" ",'').split(';')
         
         df1 = algo.df
         df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
