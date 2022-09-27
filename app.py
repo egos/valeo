@@ -173,11 +173,24 @@ if menu == 'Algo':
         algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
         if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
         if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
+        
+        NameIndiv = st.text_input('indiv generation par nom', '', help = 'genere des indiv avec leur noms ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1').replace(" ",'').split(';')
+        
         df1 = algo.df
-        df1 = df1.sort_values(algo.fitness).reset_index(drop = True)
+        df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
         dfs = algo.dfslot
         dfline = algo.dfline
-
+        # print(NameIndiv)
+        if NameIndiv != ['']:
+            L = []
+            for Name in NameIndiv: 
+                if Name != '' :
+                    indiv = Indiv_reverse(Name,algo)             
+                    L.append(indiv)
+            df1 = pd.DataFrame(L)
+            df1 = df1.drop_duplicates(subset='Name_txt')
+            df1 = df1.reset_index(drop = True)
+            # df1 = df1[df1.Name_txt.isin(NameIndiv)]
 
         # Col_drop = Col_drop_1
 
@@ -203,13 +216,14 @@ if menu == 'Algo':
         st.dataframe(dfx, use_container_width  =True)
                 
     with st.expander("Plot", False): 
-        c1 , c2 = st.columns(2)
-        MinCol = 3 if  len(df1) >= 3 else len(df1)
-        Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1)
-        # Ncol = 3 if len(df1) >=3 else len(df1)
-        Ncolmin  = 4 if Ncol < 4 else Ncol
-        col = st.columns(Ncolmin)
-        if algo.Plot:             
+        if algo.Plot: 
+            c1 , c2 = st.columns(2)
+            MinCol = 3 if  len(df1) >= 3 else len(df1)
+            Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1)
+            # Ncol = 3 if len(df1) >=3 else len(df1)
+            Ncolmin  = 4 if Ncol < 4 else Ncol
+            col = st.columns(Ncolmin)
+                    
             for i in range(Ncol):   
                 c1, c2 = st.columns([0.3,0.7])   
                 ListSelectbox = df1.index

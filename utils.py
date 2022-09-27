@@ -124,7 +124,7 @@ def load_data_brut(file, select = None):
     algo = SimpleNamespace(**algo)
     return algo
 
-def indiv_create(algo, row = None, NewCtoE = None): 
+def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None): 
      
     dfline = algo.dfline
     D = algo.Comb    
@@ -162,6 +162,7 @@ def indiv_create(algo, row = None, NewCtoE = None):
             EtoP = row.EtoP
         # print(NewCtoE , 'avant',row.Elist,row.EtoP,'apres',Elist,EtoP,row.Ecount, Ecount)
     else : EtoP = np.random.choice(D['P'],Ecount)
+    if NewPtoE is not None : EtoP =NewPtoE
     
     d = collections.defaultdict(list)
     for i in range(Ecount):      d[EtoP[i]].append(Elist[i]) 
@@ -213,6 +214,30 @@ def indiv_create(algo, row = None, NewCtoE = None):
         
     return indiv
 
+def Indiv_reverse(Name,algo):
+    NameList = Name.split(',')
+    Clist = algo.Clist
+    CtoE = {}
+    EtoP = {}
+    for n in NameList:
+        if n[0] == 'E':
+            c = int(n[-1])
+            e = int(n[1])
+            CtoE[c] = e
+
+        if n[0] == 'P':
+            e = int(n[-1])
+            p = int(n[1])
+            EtoP[e] = p
+            
+    d = dict(sorted(CtoE.items()))
+    Clist = list(d.keys())
+    CtoE = list(d.values())
+    d = dict(sorted(EtoP.items()))
+    EtoP = list(d.values())
+    indiv = indiv_create(algo, row = None, NewCtoE = CtoE, NewPtoE = EtoP)
+    return indiv
+
 def calcul_Masse_cout(indiv, algo): 
     dmasse = {}
     dcout = {}
@@ -229,7 +254,7 @@ def calcul_Masse_cout(indiv, algo):
             Ccount = len(algo.Comb['C'])
             Factor = Ccount
             Name = algo.EV  
-            
+        # print(Factor, Name)    
         v = algo.DataCategorie[Categorie]['Values']
         dmasse[Categorie] = int(sum([Factor *v[n]['Masse'] for n in Name]))
         dcout[Categorie]  = int(sum([Factor *v[n]['Cout']  for n in Name]))
@@ -372,7 +397,7 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
     Pi = coef_C * (Qi**2)
     key = ['Qt','Pt','Qi','Pi']
     val = [Qt, Pt, Qi, Pi]
-    val = [v.round(1) for v in val]
+    val = [v.round(2) for v in val]
     return dict(zip(key,val))
 
 def Calcul_Debit(algo ,indiv, group):
@@ -385,9 +410,10 @@ def Calcul_Debit(algo ,indiv, group):
     Pression = []
     Debit = []
     # Data = {}
-    Pression_C = []
+    # Pression_C = []
     # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
     Cpression = {}
+    Cdebit = {}
     grouped = False
     for i, (e,EClist) in enumerate(Econnect.items()):
         p = EtoP[i]
@@ -403,106 +429,26 @@ def Calcul_Debit(algo ,indiv, group):
                 d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
                 d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
                 res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
-                # Data[name] = res        
-                # Pression = Pression + list(res['Pi'])
+
                 Debit = Debit + list(res['Qi'])
                 Pi = list(res['Pi'])
                 PressionConnect = dict(zip(EClist, Pi))
                 Cpression.update(PressionConnect)
+                
+                Qi = list(res['Qi'])
+                Cdebit.update(dict(zip(EClist, Qi)))
+                
+                # Data[name] = res        
+                # Pression = Pression + list(res['Pi'])          
                 # print(dc,dp,Clist,list(res['Pi']))
-                Pression_C = Pression_C + [PressionConnect]
+                # Pression_C = Pression_C + [PressionConnect]
                 # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
-    Cpression = [Cpression[i] for i in D['C']]
+    PressionList = [Cpression[i] for i in D['C']]
+    DebitList    = [Cdebit[i] for i in D['C']]
     # print(Cpression)
     SumDebit = round(sum(Debit),1)
     # keys = ['info','Data','Pression','Debit','SumDebit']
     # vals = [info, Data,Pression, Debit, SumDebit]     
     keys = ['PressionList','DebitList','Debit']
-    vals = [Cpression, Debit, SumDebit] 
+    vals = [PressionList, DebitList, SumDebit] 
     return dict(zip(keys,vals))
-
-def Calcul_Debit_S2(algo ,indiv, group):
-    D = algo.Comb  
-    Group = algo.Group  
-    Clist = D['C']
-    Econnect = indiv['Econnect']
-    Pconnect = indiv['Pconnect']
-    EtoP = indiv['EtoP']
-    Pression = []
-    Debit = []
-    # Data = {}
-    Pression_C = []
-    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
-    Cpression = {}
-    grouped = False
-    for i, (e,EClist) in enumerate(Econnect.items()):
-        p = EtoP[i]
-        name = 'P{}-E{}'.format(p,e)
-        VerifGroup = np.isin(Group,  EClist)
-        EClistTotal = [EClist]
-        if VerifGroup.all() & (len(Group) > 0):
-            EClistTotal = [Group, [i for i in EClist if i not in Group]]          
-            grouped = True
-        for j,  EClist in enumerate(EClistTotal):
-            if j >0 : grouped = False
-            d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
-
-            d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-            res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
-            # Data[name] = res        
-            # Pression = Pression + list(res['Pi'])
-            Debit = Debit + list(res['Qi'])
-            Pi = list(res['Pi'])
-            PressionConnect = dict(zip(EClist, Pi))
-            Cpression.update(PressionConnect)
-            # print(dc,dp,Clist,list(res['Pi']))
-            Pression_C = Pression_C + [PressionConnect]
-            # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
-    Cpression = [Cpression[i] for i in D['C']]
-    # print(Cpression)
-    SumDebit = round(sum(Debit),1)
-    # keys = ['info','Data','Pression','Debit','SumDebit']
-    # vals = [info, Data,Pression, Debit, SumDebit]     
-    keys = ['Pression','Debit','SumDebit']
-    vals = [Cpression, Debit, SumDebit] 
-    return dict(zip(keys,vals))
-
-def Calcul_Debit_S(algo ,indiv, group):
-    D = algo.Comb    
-    Clist = D['C']
-    Econnect = indiv['Econnect']
-    Pconnect = indiv['Pconnect']
-    EtoP = indiv['EtoP']
-    Pression = []
-    Debit = []
-    # Data = {}
-    Pression_C = []
-    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
-    Cpression = {}
-    for i, (e,EClist) in enumerate(Econnect.items()):
-        p = EtoP[i]
-        name = 'P{}-E{}'.format(p,e)
-        d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
-        d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-        # info = [i,e,Clist, p, d_EtoC_list, d_PtoE]
-        # Dict_dist = {'EtoC': dist_EtoC,'PtoE':dist_PtoE }
-        res = debit(algo, d_EtoC_list,d_PtoE, EClist, group)
-        # Data[name] = res        
-        # Pression = Pression + list(res['Pi'])
-        Debit = Debit + list(res['Qi'])
-        Pi = list(res['Pi'])
-        PressionConnect = dict(zip(EClist, Pi))
-        Cpression.update(PressionConnect)
-        # print(dc,dp,Clist,list(res['Pi']))
-        Pression_C = Pression_C + [PressionConnect]
-    Cpression = [Cpression[i] for i in D['C']]
-    SumDebit = round(sum(Debit),1)
-    # keys = ['info','Data','Pression','Debit','SumDebit']
-    # vals = [info, Data,Pression, Debit, SumDebit] 
-    
-    keys = ['Pression','Debit','SumDebit']
-    vals = [Cpression, Debit, SumDebit] 
-    return dict(zip(keys,vals))
-
-
-
