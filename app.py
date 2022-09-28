@@ -74,7 +74,6 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         submitted = st.form_submit_button("Submit & Reset")      
         if submitted:
             algo = load_data_brut(file, select)
-            algo.Nozzle = Nozzles
             algo.Pompes  = [Pompe] * len(algo.Comb['P'])
             algo.Pvals =  [algo.DataCategorie['Pompe']['Values'][Pompe][i] for i in ['a','b','c']]
             algo.Nozzles = Nozzles
@@ -216,6 +215,7 @@ if menu == 'Algo':
         st.dataframe(dfx, use_container_width  =True)
                 
     with st.expander("Plot", False): 
+        pass
         if algo.Plot: 
             c1 , c2 = st.columns(2)
             MinCol = 3 if  len(df1) >= 3 else len(df1)
@@ -246,6 +246,6 @@ if menu == 'Algo':
                 #     dfsSelect = dfs.copy()
 
                 fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
-                col[i].dataframe(row.drop(labels= Col_drop + ColAlgo).astype('str'),  use_container_width  =True)
+                col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)
                     
                 col[i].pyplot(fig)
