@@ -12,6 +12,7 @@ import json
 import collections
 import copy
 from types import SimpleNamespace
+import matplotlib.patches as mpatch
 
 # @st.cache(allow_output_mutation=True)
 # def load_data(Size, time):
@@ -71,8 +72,7 @@ def load_data_brut(file, select = None):
     DataCategorie = {}
     mask = confs['Actif'].notnull()
     df = confs[mask].copy()
-    for Categorie in df.Categorie.unique():
-        
+    for Categorie in df.Categorie.unique():        
         dfx = df[df.Categorie == Categorie]
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
@@ -130,13 +130,14 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
     D = algo.Comb    
     Clist = D['C']
     Ccount = len(D['C'])
-    
-    
-    Elist = D['E']
-    if len(D['E']) >  algo.Pmax : Elist = np.random.choice(Elist,algo.Pmax)
+        
+    # Elist = D['E']
+    # ElistMax = D['E']
+    # if ElistMax >  algo.Pmax : 
+    ElistMax = np.random.choice(D['E'],algo.Pmax) if len(D['E']) >  algo.Pmax  else D['E']
     
     if NewCtoE is not None : CtoE = NewCtoE
-    else : CtoE = np.random.choice(Elist,Ccount)
+    else : CtoE = np.random.choice(ElistMax,Ccount)
     # else : CtoE = np.random.choice(D['E'],Ccount)
 
     
@@ -153,6 +154,7 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
         if Ecount > row.Ecount:
             # print(D['P'],Ecount - row.Ecount)
             # NewEtoP = np.random.randint(0,len(D['P']),Ecount - row.Ecount)
+            # NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
             NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
             EtoP = np.append(row.EtoP, NewEtoP)
         elif Ecount < row.Ecount : 
@@ -162,7 +164,7 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
             EtoP = row.EtoP
         # print(NewCtoE , 'avant',row.Elist,row.EtoP,'apres',Elist,EtoP,row.Ecount, Ecount)
     else : EtoP = np.random.choice(D['P'],Ecount)
-    if NewPtoE is not None : EtoP =NewPtoE
+    if NewPtoE is not None : EtoP = NewPtoE
     
     d = collections.defaultdict(list)
     for i in range(Ecount):      d[EtoP[i]].append(Elist[i]) 
@@ -374,13 +376,15 @@ def plot_(algo,dflineSelect, dfsSelect, name):
         f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
     return fig
 
-def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
-    # d_EtoC = Dict_dist['EtoC']
-    # d_PtoE = Dict_dist['PtoE']
+def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True, split = True):
+    if not group : split = False
+
     p = [-5.16e-04, -1.54e-02, 4.87]
     p = algo.Pvals
-    # p = [-6.61e-4,-0.0286,12.1]
-    coef_E  = 7.64e-04
+
+    cE0 = 7.64e-04
+    coef_E = 0 if split else cE0
+    
     coef_C  = 0.036
     coef_C  = [algo.Nvals[i] for i in Clist]
     coef_C  = np.array(coef_C)
@@ -388,7 +392,10 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True):
     
     A = coef_E + d_EtoC_list * coef_d + coef_C 
     Z = ( A**-0.5).sum() if group else A**-0.5
-    As , Bs, Cs = p[0] - (coef_d * d_PtoE) - 1/(Z**2), p[1] , p[2]
+    coef_E = cE0 if split else 0
+    As = p[0] - (coef_d * d_PtoE) - 1/(Z**2) - coef_E
+    Bs = p[1]
+    Cs = p[2]
     delta = (Bs**2) - (4 * As * Cs)
     Qt  = np.array((- Bs - delta**0.5)/(2*As))
     Pt = np.array(Qt**2 / Z**2)
@@ -452,3 +459,126 @@ def Calcul_Debit(algo ,indiv, group):
     keys = ['PressionList','DebitList','Debit']
     vals = [PressionList, DebitList, SumDebit] 
     return dict(zip(keys,vals))
+
+def new_import(algo):
+    print('new_import')
+    dfmap = pd.read_excel('test.xlsx', sheet_name= 'map (2)', header=None)
+    
+    SlotColor = {'C' : 10, 'E': 20, 'P' : 30}
+    A0 = dfmap.values
+    Size = max(A0.shape)
+    Comb = collections.defaultdict(list)
+    DictPos = {}
+    slots = ['C','P','E']
+    ListBegin = []
+    ListEnd = []
+    for iy, ix in np.ndindex(A0.shape):
+        v = A0[iy, ix]
+        if type(v) == str: 
+            slot = v[0]
+            A0[iy,ix] = SlotColor[slot]*20
+            Comb[v[0]].append(int(v[1:]))
+            DictPos[v] = (iy,ix)   
+            if slot == "E" : ListBegin.append(v)
+            else : ListEnd.append(v)
+            
+    A0 = A0.astype(float)      
+    Comb
+    Ax = np.ones((Size,Size))
+    Ax[:A0.shape[0],:A0.shape[1]] = A0
+    ListBegin, ListEnd = sorted(ListBegin), sorted(ListEnd)
+    
+    
+    Path = {}
+    d = {} 
+    DictLine = {}
+    
+    for begin in ListBegin:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        for end in ListEnd: 
+            goal = DictPos[end]        
+            path = Path2(A1.copy() ,start,  goal)
+            path = np.array(path)       
+            dist = np.abs(np.diff(path.T)).sum()
+            
+            if end[0] == 'C' : ID = begin + '-' + end
+            else : ID = end + '-' + begin
+            #print(begin,start, end , goal)
+
+            DictLine[ID] = {'path' : path, 'dist' : dist}
+            
+    algo.A0 = A0
+
+    
+    return DictLine, DictPos
+    
+    
+def new_plot(algo, DictLine, DictPos):
+    LenPath = len(DictLine)
+    A0 = algo.A0
+    Ymax , Xmax = A0.shape
+    PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee"}
+    fig, ax = plt.subplots(figsize = (8,8))
+
+    f = ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
+    # masked = np.ma.masked_where(A0 <= 1, A0)
+    offset = np.linspace(-0.35,0.35,LenPath)
+    for i, (slot,data) in enumerate(DictLine.items()):
+        n = offset[i]  
+        p = data['path']
+        if slot[0] == 'E' : 
+            f = ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=1, zorder=1, linestyle ='-')
+        else : 
+            f = ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=2, zorder=1, linestyle ='-')
+
+    style = dict(size=15, color='black')
+    for slot, pos in DictPos.items(): 
+        x , y = pos
+        Type = slot[0]
+        color = PlotColor[Type]
+        f = ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 0.8, 0.8, color=color))
+        f = ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 0.8, 0.8, color='black', fill = None))
+        f = ax.text(y, x+0.1,slot , **style,  ha='center', weight='bold') 
+    #     f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='green'))
+    f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
+    return  fig
+
+def Path1(A,start): 
+    N = len(A)
+    v0 = np.array([-1,1,-N,N])
+    #     v0 = np.array([-1,1,-N,N, -N-1, -N+1,N+1,N-1])
+    Dim = len(v0)
+    e = 2
+    A[start] = e
+    a = A.reshape(-1)
+    v = np.where(a == e)  
+
+    while len(v) > 0 :
+        v = np.tile(v, (Dim, 1)).T + v0
+        v = v[np.where(a[v]==0)]
+        v = np.unique(v)        
+        e+=1
+        a[v]=e
+    return a.reshape((N,N))
+
+def Path2(A,start,goal):
+    N = len(A)
+    v0 = np.array([-1,1,-N,N])
+    #     v0 = np.array([-1,1,-N,N, -N-1, -N+1,N+1,N-1])
+    Dim = len(v0)
+    e1,e2  = A[start] , A[goal]
+    a = A.reshape(-1)
+    v = goal[1] + goal[0]*N
+    L  = [goal]
+    while e2 > 2:
+        v = v + v0
+        v[v > len(a)] = len(a)-1
+        v = v[np.where((a[v] < e2) & (a[v] >= 2))]
+        idx = a[v].argmin()
+        v = v[idx]
+        e2 = a[v]
+        pos = (int(np.ceil(v/N)-1),  v%N)
+        L.insert(0,pos)
+    return L    

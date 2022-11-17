@@ -28,12 +28,9 @@ Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
 Col_drop_2 = ['CtoE','EtoP']
 Col_drop   = []
 
-
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie']
-
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 if 'algo' not in session_state: 
@@ -84,7 +81,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             session_state['algo'] = algo
             print('submitted : Elements Type')
     
-menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
+menu = st.sidebar.radio("MENU", ['Input','Algo','Test'], index  = 2)
     
 if menu == 'Input':
     st.subheader('INPUT')
@@ -127,7 +124,6 @@ if menu == 'Algo':
             
         if c1.button('RESET'):
             print('Params : RESET')
-            # algo = load_data_brut(file)
             algo.df = indiv_init(algo, algo.pop)
             session_state['algo'] = algo             
         if c2.button('RUN'):
@@ -173,7 +169,7 @@ if menu == 'Algo':
         if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
         if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
         
-        NameIndiv = st.text_input('indiv generation par nom', '', help = 'permet de generer des indivs avec leur Name ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1').replace(" ",'').split(';')
+        NameIndiv = st.text_input('indiv generation par nom', 'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1', help = 'permet de generer des indivs avec leur Name ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1').replace(" ",'').split(';')
         
         df1 = algo.df
         df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
@@ -249,3 +245,28 @@ if menu == 'Algo':
                 col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)
                     
                 col[i].pyplot(fig)
+                
+                
+if menu == 'Test': 
+    c1 ,c2,c3 = st.columns(3)
+    DictLine, DictPos = new_import(algo)
+    dfline = pd.DataFrame(DictLine).T
+    dfline['path'] = dfline.path.astype(str)
+    c1.dataframe(dfline)
+    c2.write(pd.DataFrame(DictPos).T)
+    fig = new_plot(algo, DictLine, DictPos)
+    c3.pyplot(fig)
+    # st.markdown("""
+    #     <style>
+    #     [data-testid=stVerticalBlock]{
+    #         gap: 0rem;}
+    #     </style>
+    #     """,unsafe_allow_html=True)
+    
+    # jmax = 10
+    # l = [0.5/jmax] * jmax + [0.5]
+    # c = st.columns(l)
+    # for i in range(jmax) : 
+    #     for j in range(jmax):
+    #         key = str(i) + str(j)
+    #         c[j].text_input(label = ' ',value = key,key  = key, label_visibility = 'hidden')
