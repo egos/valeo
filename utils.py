@@ -20,53 +20,16 @@ import matplotlib.patches as mpatch
 
 def load_data_brut(file, select = None):
     
-    with open(file, 'r') as f:
-      data = json.load(f)
+    DictLine, DictPos, A0,Comb = new_import()
+    dfline = pd.DataFrame(DictLine).T
+    dfline.index.name = 'ID'
+    dfline.reset_index(inplace = True)
 
-    dfslot = pd.DataFrame(data['layers'][1]['objects']).drop(columns= ['rotation','width','height','visible','gid']).rename(columns = {'class' : 'Class', 'name' : 'Name'})
-    dfslot.x = (dfslot.x/16).astype(int)
-    dfslot.y = (dfslot.y/16).astype(int) - 1
-    dfslot.Name = pd.to_numeric(dfslot.Name)
-    dfslot['ID'] = dfslot.Class + dfslot.Name.astype(str)
-    dfslot['Color'] = dfslot['Class'].map({'C':10,'E':20,'P':30})
-
-    dfline  = pd.DataFrame(data['layers'][2]['objects']).drop(columns=['rotation','width','name','height','visible','id']).rename(columns = {'class' : 'Class'})
-    for idx, row in dfline.iterrows():
-        properties = row.properties
-        # properties = properties[:0] + properties[-2:]
-        dfline.loc[idx, ['end','long','start']] = [d['value'] for d in properties]    
-        polyline = row.polyline
-        x,y = row.x,row.y
-        polyline = [(p['x'] + x, p['y'] + y) for p in polyline]
-        p = np.array(polyline)
-        dfline.at[idx , 'polyline'] = p   
-        dfline.loc[idx ,'dist'] = np.abs(np.diff(p.T)).sum()
-    dfline.start = pd.to_numeric(dfline.start)
-    dfline.end = pd.to_numeric(dfline.end)
-    dfline.dist = (dfline.dist.astype(int)*2/100).round(2)
-    dfline = dfline.drop(columns= ['properties','x','y'])
-    t = dfline.Class.str.split('-')
-    dfline['ID'] = t.str[1] + dfline.end.astype(str) + '-' + t.str[0] + dfline.start.astype(str)
-    dfline = dfline.sort_values('ID').reset_index(drop = True)
-    
-    CombAll = dfslot.ID.tolist()
-
-    # DropList = ['C0','E2']
-    # DropList = []
-    # if len(DropList) > 0 : 
+    CombAll = list(DictPos.keys())
     # if select is not None : 
-    #     dfline = dfline[~dfline.ID.str.contains('|'.join(DropList))]
-    #     dfslot = dfslot[~dfslot.ID.isin(DropList)]
-    if select is not None : 
-        dfline = dfline[~dfline.ID.str.contains('|'.join(select))]
-        dfslot = dfslot[~dfslot.ID.isin(select)]  
-    A0 = data['layers'][0]['data']
-    height = data['height']
-    A0 = np.array(A0).reshape(10,7)
-    pas = 16
-    unique = np.unique(A0)
-    A0[A0 == unique[0]] = 0
-    A0[A0 == unique[1]] = 1
+    #     dfline = dfline[~dfline.ID.str.contains('|'.join(select))]
+    #     dfslot = dfslot[~dfslot.ID.isin(select)]  
+    #     dfslot = {k : v for k,v in DictPos}
     
     confs = pd.read_excel('test.xlsx')
     DataCategorie = {}
@@ -77,10 +40,8 @@ def load_data_brut(file, select = None):
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    }   
+                    }  
     
-    
-    Comb = dfslot.groupby('Class').Name.unique().apply(list).apply(sorted).to_dict()
     Clist = Comb['C']
     Pompes  = [DataCategorie['Pompe']['Unique'][0]]* len(Comb['P'])
     Pvals   = [DataCategorie['Pompe']['Values'][Pompes[0]][i] for i in ['a','b','c']]
@@ -92,13 +53,14 @@ def load_data_brut(file, select = None):
         Group = [],
         pop = 50,
         fitness = 'dist',
-        crossover = 0.4,
-        mutation = 0.4,
+        crossover = 20,
+        mutation = 20,
         Nlim = 2.0,          
         Pmax = 3,
         Plot = False,
-        dfslot = dfslot,
+        DictPos = DictPos,
         dfline = dfline,
+        DictLine = DictLine,
         epoch = 0,
         Nindiv = 0,
         Nrepro = 0,
@@ -110,17 +72,15 @@ def load_data_brut(file, select = None):
         Pvals = Pvals,     
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
-        Nvals = Nvals,
-               
+        Nvals = Nvals,               
         confs = confs,
         Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
-        height = data['height'],
+        # height = data['height'],
         A0 = A0,
-        
-    )
+        )
     algo = SimpleNamespace(**algo)
     return algo
 
@@ -352,30 +312,6 @@ def indiv_init(algo, pop):
     
     return df
 
-def plot_(algo,dflineSelect, dfsSelect, name): 
-    A0 = algo.A0.copy()
-    
-    for idx, row in dfsSelect.iterrows():
-        A0[row.y, row.x] = row.Color + int(row.Name)   
-        
-    A = np.kron(A0, np.ones((16,16), dtype=int))
-    fig, ax = plt.subplots(figsize = (8,8))
-    ax.set_title(name)
-    plt.xticks([])
-    plt.yticks([])
-    ax.imshow(A)
-    for idx, row in dflineSelect.iterrows():
-        p = row.polyline
-        f = ax.plot(p[:,0],p[:,1],'k', linewidth=4)
-
-    style = dict(size=15, color='black') 
-    for idx, row in dfsSelect.iterrows():
-        x = row.x*16
-        y = row.y*16
-        text = row.Class + str(row.Name)
-        f = ax.text(row.x*16+8, row.y*16+8,text , **style,  ha='center', weight='bold') 
-    return fig
-
 def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True, split = True):
     if not group : split = False
 
@@ -460,16 +396,20 @@ def Calcul_Debit(algo ,indiv, group):
     vals = [PressionList, DebitList, SumDebit] 
     return dict(zip(keys,vals))
 
-def new_import(algo):
+def new_import():
     print('new_import')
-    dfmap = pd.read_excel('test.xlsx', sheet_name= 'map (2)', header=None)
+    dfmap = pd.read_excel('test.xlsx', sheet_name= 'map (4)', header=None)
     
     SlotColor = {'C' : 10, 'E': 20, 'P' : 30}
+    slots = ['C','P','E']
+    
+    
     A0 = dfmap.values
     Size = max(A0.shape)
+    DistFactor = 3 * Size / 3
+    
     Comb = collections.defaultdict(list)
-    DictPos = {}
-    slots = ['C','P','E']
+    DictPos = {}    
     ListBegin = []
     ListEnd = []
     for iy, ix in np.ndindex(A0.shape):
@@ -483,14 +423,11 @@ def new_import(algo):
             else : ListEnd.append(v)
             
     A0 = A0.astype(float)      
-    Comb
     Ax = np.ones((Size,Size))
     Ax[:A0.shape[0],:A0.shape[1]] = A0
     ListBegin, ListEnd = sorted(ListBegin), sorted(ListEnd)
-    
-    
+        
     Path = {}
-    d = {} 
     DictLine = {}
     
     for begin in ListBegin:
@@ -501,21 +438,18 @@ def new_import(algo):
             goal = DictPos[end]        
             path = Path2(A1.copy() ,start,  goal)
             path = np.array(path)       
-            dist = np.abs(np.diff(path.T)).sum()
+            dist = (np.abs(np.diff(path.T)).sum() / DistFactor).round(2)
             
             if end[0] == 'C' : ID = begin + '-' + end
             else : ID = end + '-' + begin
-            #print(begin,start, end , goal)
 
-            DictLine[ID] = {'path' : path, 'dist' : dist}
-            
-    algo.A0 = A0
+            DictLine[ID] = {'path' : path, 'dist' : dist}        
 
-    
-    return DictLine, DictPos
-    
-    
-def new_plot(algo, DictLine, DictPos):
+    return DictLine, DictPos, A0,dict(Comb)
+      
+def new_plot(algo,SelectLine, SelectSlot):
+    DictLine = {k:v for k,v in algo.DictLine.items() if k in SelectLine}
+    DictPos  = {k:v for k,v in algo.DictPos.items()  if k in SelectSlot}
     LenPath = len(DictLine)
     A0 = algo.A0
     Ymax , Xmax = A0.shape
@@ -524,24 +458,25 @@ def new_plot(algo, DictLine, DictPos):
 
     f = ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
     # masked = np.ma.masked_where(A0 <= 1, A0)
-    offset = np.linspace(-0.35,0.35,LenPath)
+    MinOffset = LenPath*0.03
+    MinOffset = MinOffset if MinOffset < 0.4 else 0.4
+    offset = np.linspace(-MinOffset,MinOffset,LenPath)
     for i, (slot,data) in enumerate(DictLine.items()):
         n = offset[i]  
         p = data['path']
         if slot[0] == 'E' : 
-            f = ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=1, zorder=1, linestyle ='-')
+            f = ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=2, zorder=1, linestyle ='-')
         else : 
-            f = ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=2, zorder=1, linestyle ='-')
+            f = ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=3, zorder=1, linestyle ='-')
 
-    style = dict(size=15, color='black')
+    style = dict(size= 15 * 9 / Ymax, color='black')
     for slot, pos in DictPos.items(): 
         x , y = pos
         Type = slot[0]
         color = PlotColor[Type]
-        f = ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 0.8, 0.8, color=color))
-        f = ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 0.8, 0.8, color='black', fill = None))
-        f = ax.text(y, x+0.1,slot , **style,  ha='center', weight='bold') 
-    #     f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='green'))
+        f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color=color))
+        f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color='black', fill = None))
+        f = ax.text(y, x+0.1,slot[1:] , **style,  ha='center', weight='bold') 
     f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
     return  fig
 
@@ -581,4 +516,7 @@ def Path2(A,start,goal):
         e2 = a[v]
         pos = (int(np.ceil(v/N)-1),  v%N)
         L.insert(0,pos)
-    return L    
+    return L  
+
+
+  
