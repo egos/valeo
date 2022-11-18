@@ -130,3 +130,15 @@ def plot_(algo,dflineSelect, dfsSelect, name):
 
 
 
+    # with st.form("Select"): 
+    #     select = st.multiselect('Pattern',algo.CombAll, algo.CombAll)
+    #     select = [s for s in algo.CombAll if s not in select]
+    #     if select == [] : select = None
+    #     submitted = st.form_submit_button("Submit & Reset")      
+
+    #     if submitted:
+    #         # file = {'SheetMapName' : algo.SheetMapName, 'uploaded_file' : algo.uploaded_file} 
+    #         print('submitted Select')
+    #         algo = load_data_brut(file, select)
+    #         algo.df = indiv_init(algo, pop)
+    #         session_state['algo'] = algo

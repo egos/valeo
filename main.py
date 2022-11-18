@@ -16,9 +16,7 @@ from utils import *
 
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
 st.set_page_config(page_title = "_IHM", layout="wide")
-print('BEGIN')
-file = 'VALEO_full.tmj'
-Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
+# Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10      
 
 Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
@@ -30,29 +28,40 @@ Col_drop   = []
 
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie', 'DictLine','DictPos']
+keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie', 'DictLine','DictPos','dist']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
+menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 0)
+
 if 'algo' not in session_state: 
-    print('init')
+    print(' ')
+    print('BEGIN')
+    file = {'SheetMapName' : 'map', 'uploaded_file' : None}
+    
     algo = load_data_brut(file)
     algo.df = indiv_init(algo, pop)
     session_state['algo'] = algo
 else : 
+    print('reload')
     algo = session_state['algo']
-    
+      
 with st.expander('Options : 🖱️ press submit for change take effect', True):
-    with st.form("Pattern"):  
-        select = st.multiselect('Pattern',algo.CombAll, algo.CombAll)
-        select = [s for s in algo.CombAll if s not in select]
-        if select == [] : select = None
-        submitted = st.form_submit_button("Submit & Reset")        
-        if submitted:
-            algo = load_data_brut(file, select)
+
+    with st.form('Map excel sheet name'):
+        c1, c2 = st.columns([0.6,0.4])
+        
+        uploaded_file = c1.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
+        SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
+        file = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file}
+        submitted = st.form_submit_button("Submit & Reset")
+        if submitted: 
+            print('submitted Map')
+            algo = load_data_brut(file)
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
-            print('submitted : Pattern')
-    with st.form("Elements Type"):         
+            
+    with st.form("Slots"):    
+            
         Clist = algo.Clist     
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
         # ListCategorie = ['Pompe', 'Nozzle']
@@ -63,15 +72,16 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             c = Clist[i]
             # print(Ctype, i, c)
             Nozzle =  col[i].selectbox(str(c),Ctype, index = 0)            
-            Nozzles.append(Nozzle)
+            Nozzles.append(Nozzle)            
+            if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : 
+                Group.append(c)
             
-            if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)
-            
-        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"
-            
+        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"            
         submitted = st.form_submit_button("Submit & Reset")      
         if submitted:
-            algo = load_data_brut(file, select)
+            print('submitted Slots') 
+            # file = {'SheetMapName' : algo.SheetMapName, 'uploaded_file' : algo.uploaded_file} 
+            algo = load_data_brut(file)
             algo.Pompes  = [Pompe] * len(algo.Comb['P'])
             algo.Pvals =  [algo.DataCategorie['Pompe']['Values'][Pompe][i] for i in ['a','b','c']]
             algo.Nozzles = Nozzles
@@ -81,8 +91,8 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
-    
-menu = st.sidebar.radio("MENU", ['Input','Algo','Test'], index  = 2)
+        # print('file',file)
+
     
 if menu == 'Input':
     st.subheader('INPUT')
@@ -108,13 +118,20 @@ if menu == 'Input':
     c1, c2 = st.columns([0.8,0.2])  
     c1.table(dfline.style.format(precision = 2))
     c2.table(dfslot) 
+    
+    if st.sidebar.checkbox("Show Conf files :"):        
+        d = {k : v for k,v in vars(algo).items() if k not in keydrop}
+        s = pd.Series(d).rename('Val').astype(str)
+        s.index = s.index.astype(str)
+        # st.sidebar.json(d, expanded=True) 
+        st.sidebar.table(s)
       
 if menu == 'Algo':  
     
     with st.expander("Params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
-        iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 10,step = 1)
+        iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 1000,step = 1)
         algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
         txt = "indivs selectionnés avec la meilleur fitness pour crossover => 2 enfants"
         algo.crossover = c4.number_input(label = 'Crossover',value = int(algo.crossover), min_value = 0, max_value  = 100,step = 10, help =txt)
@@ -127,7 +144,7 @@ if menu == 'Algo':
         algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
         
-        txt = 'permet de generer des indivs avec leur Name ex E0-C1,E0-C3,E1-C0,E1-C2,P0-E0,P1-E1; E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
+        txt = 'permet de generer des indivs avec leur Name ex E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  ''
         NameIndiv = st.text_input('generation individu par nom', default,help = txt)
@@ -139,9 +156,11 @@ if menu == 'Algo':
             algo.df = indiv_init(algo, algo.pop)
             session_state['algo'] = algo             
         if c2.button('RUN'):
-            print("Params : RUN")                    
-            my_bar = st.progress(0.0)    
+            print("Params : RUN")   
+            latest_iteration = st.empty()                 
+            my_bar = st.empty()     
             for i in range(iterations):
+                latest_iteration.text(f'{iterations - i} iterations left')
                 my_bar.progress((i+1)/iterations)
                 algo.epoch +=1
                 df0 = algo.df
@@ -178,10 +197,7 @@ if menu == 'Algo':
         algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
         if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
         if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
-        
-        
-        
-        
+                              
         df1 = algo.df
         df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
         dfline = algo.dfline
@@ -246,32 +262,7 @@ if menu == 'Algo':
                 col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
                 fig = new_plot(algo, SelectLine, SelectSlot)
                 col[i].pyplot(fig)
-    # c3.pyplot(fig)
+
+# c3.pyplot(fig)
                 
                 
-if menu == 'Test': 
-    algo = load_data_brut(file)
-    algo.df = indiv_init(algo, pop)
-    # c1 ,c2,c3 = st.columns(3)
-    # DictLine, DictPos, A0 = new_import(algo)
-    # dfline = pd.DataFrame(DictLine).T
-    # dfline['path'] = dfline.path.astype(str)
-    # c1.dataframe(dfline)
-    # c2.write(pd.DataFrame(DictPos).T)
-    # algo.A0 = A0
-    # fig = new_plot(algo, DictLine, DictPos)
-    # c3.pyplot(fig)
-    # st.markdown("""
-    #     <style>
-    #     [data-testid=stVerticalBlock]{
-    #         gap: 0rem;}
-    #     </style>
-    #     """,unsafe_allow_html=True)
-    
-    # jmax = 10
-    # l = [0.5/jmax] * jmax + [0.5]
-    # c = st.columns(l)
-    # for i in range(jmax) : 
-    #     for j in range(jmax):
-    #         key = str(i) + str(j)
-    #         c[j].text_input(label = ' ',value = key,key  = key, label_visibility = 'hidden')

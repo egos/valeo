@@ -14,24 +14,23 @@ import copy
 from types import SimpleNamespace
 import matplotlib.patches as mpatch
 
-# @st.cache(allow_output_mutation=True)
-# def load_data(Size, time):
-#     return load_data_brut(Size)
-
 def load_data_brut(file, select = None):
+    print('Init algo namespace')
+    uploaded_file = file['uploaded_file']
+    SheetMapName  = file ['SheetMapName']
+    uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
+    # print('algo', uploaded_file)
     
-    DictLine, DictPos, A0,Comb = new_import()
+    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, header=None)
+        
+    DictLine, DictPos, A0,Comb = new_import(dfmap)
     dfline = pd.DataFrame(DictLine).T
     dfline.index.name = 'ID'
     dfline.reset_index(inplace = True)
 
     CombAll = list(DictPos.keys())
-    # if select is not None : 
-    #     dfline = dfline[~dfline.ID.str.contains('|'.join(select))]
-    #     dfslot = dfslot[~dfslot.ID.isin(select)]  
-    #     dfslot = {k : v for k,v in DictPos}
     
-    confs = pd.read_excel('test.xlsx')
+    confs = pd.read_excel(uploaded_file, sheet_name= 'confs')
     DataCategorie = {}
     mask = confs['Actif'].notnull()
     df = confs[mask].copy()
@@ -40,8 +39,8 @@ def load_data_brut(file, select = None):
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    }  
-    
+                    }         
+
     Clist = Comb['C']
     Pompes  = [DataCategorie['Pompe']['Unique'][0]]* len(Comb['P'])
     Pvals   = [DataCategorie['Pompe']['Values'][Pompes[0]][i] for i in ['a','b','c']]
@@ -50,6 +49,8 @@ def load_data_brut(file, select = None):
     Nvals  = dict(zip(Clist, Nvals))
         
     algo = dict(
+        SheetMapName = SheetMapName,
+        uploaded_file = uploaded_file,
         Group = [],
         pop = 50,
         fitness = 'dist',
@@ -58,8 +59,8 @@ def load_data_brut(file, select = None):
         Nlim = 2.0,          
         Pmax = 3,
         Plot = False,
-        DictPos = DictPos,
         dfline = dfline,
+        DictPos = DictPos,        
         DictLine = DictLine,
         epoch = 0,
         Nindiv = 0,
@@ -78,7 +79,6 @@ def load_data_brut(file, select = None):
         Comb = Comb,
         CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
-        # height = data['height'],
         A0 = A0,
         )
     algo = SimpleNamespace(**algo)
@@ -157,6 +157,9 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
     d =  Calcul_Debit(algo ,indiv, False)
     # col  = ['PressionList', 'DebitList','Debit']
     # indiv.update({(c): d[c] for c in col})
+    indiv.update(d)
+    d =  Calcul_Debit(algo ,indiv, True)
+    d = {k + '_S' : v for k,v in d.items()}
     indiv.update(d)
     # d =  Calcul_Debit(algo ,indiv, True)
     # indiv.update({(c +'_g'): d[c] for c in col})
@@ -343,7 +346,7 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True, split = True):
     val = [v.round(2) for v in val]
     return dict(zip(key,val))
 
-def Calcul_Debit(algo ,indiv, group):
+def Calcul_Debit(algo ,indiv, split):
     D = algo.Comb  
     Group = algo.Group  
     Clist = D['C']
@@ -371,7 +374,7 @@ def Calcul_Debit(algo ,indiv, group):
             if len(EClist)>0: # bug avec calcul array
                 d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
                 d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-                res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped)
+                res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped, split = split)
 
                 Debit = Debit + list(res['Qi'])
                 Pi = list(res['Pi'])
@@ -396,9 +399,8 @@ def Calcul_Debit(algo ,indiv, group):
     vals = [PressionList, DebitList, SumDebit] 
     return dict(zip(keys,vals))
 
-def new_import():
-    print('new_import')
-    dfmap = pd.read_excel('test.xlsx', sheet_name= 'map (4)', header=None)
+def new_import(dfmap):
+    # print('new_import')
     
     SlotColor = {'C' : 10, 'E': 20, 'P' : 30}
     slots = ['C','P','E']
