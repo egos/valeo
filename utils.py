@@ -413,17 +413,26 @@ def new_import(dfmap):
     Comb = collections.defaultdict(list)
     DictPos = {}    
     ListBegin = []
-    ListEnd = []
+    ListEnd = []   
+        
+    slots = ['C','P','E']
+    slotsN = dict(zip(slots,[0,0,0]))
+
     for iy, ix in np.ndindex(A0.shape):
         v = A0[iy, ix]
         if type(v) == str: 
             slot = v[0]
+            n = slotsN[slot]
+            slotsN[slot] = n+1
+            v = slot + str(n)
             A0[iy,ix] = SlotColor[slot]*20
-            Comb[v[0]].append(int(v[1:]))
-            DictPos[v] = (iy,ix)   
-            if slot == "E" : ListBegin.append(v)
-            else : ListEnd.append(v)
+            #Comb[v[0]].append(int(v[1:]))
+            Comb[v[0]].append(int(n))
+            DictPos[v] = (iy,ix)
             
+            if slot == "E" : ListBegin.append(v)
+            else : ListEnd.append(v)    
+               
     A0 = A0.astype(float)      
     Ax = np.ones((Size,Size))
     Ax[:A0.shape[0],:A0.shape[1]] = A0
@@ -467,9 +476,9 @@ def new_plot(algo,SelectLine, SelectSlot):
         n = offset[i]  
         p = data['path']
         if slot[0] == 'E' : 
-            f = ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=2, zorder=1, linestyle ='-')
+            f= ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=2, zorder=1, linestyle ='-')
         else : 
-            f = ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=3, zorder=1, linestyle ='-')
+            f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=3, zorder=1, linestyle ='-')
 
     style = dict(size= 15 * 9 / Ymax, color='black')
     for slot, pos in DictPos.items(): 
