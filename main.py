@@ -15,7 +15,7 @@ import copy
 from utils import *
 
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
-st.set_page_config(page_title = "_IHM", layout="wide")
+st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
 # Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10      
 

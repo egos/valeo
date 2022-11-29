@@ -23,7 +23,7 @@ def load_data_brut(file, select = None):
     
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, header=None)
         
-    DictLine, DictPos, A0,Comb = new_import(dfmap)
+    DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap)
     dfline = pd.DataFrame(DictLine).T
     dfline.index.name = 'ID'
     dfline.reset_index(inplace = True)
@@ -80,6 +80,7 @@ def load_data_brut(file, select = None):
         CombAll = CombAll,
         dist = dfline.set_index('ID').dist.to_dict(),
         A0 = A0,
+        ListWall = ListWall
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -414,6 +415,7 @@ def new_import(dfmap):
     DictPos = {}    
     ListBegin = []
     ListEnd = []   
+    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
         
     slots = ['C','P','E']
     slotsN = dict(zip(slots,[0,0,0]))
@@ -456,12 +458,13 @@ def new_import(dfmap):
 
             DictLine[ID] = {'path' : path, 'dist' : dist}        
 
-    return DictLine, DictPos, A0,dict(Comb)
+    return DictLine, DictPos, A0,dict(Comb), ListWall
       
 def new_plot(algo,SelectLine, SelectSlot):
     DictLine = {k:v for k,v in algo.DictLine.items() if k in SelectLine}
     DictPos  = {k:v for k,v in algo.DictPos.items()  if k in SelectSlot}
     LenPath = len(DictLine)
+    ListWall = algo.ListWall
     A0 = algo.A0
     Ymax , Xmax = A0.shape
     PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee"}
@@ -488,6 +491,10 @@ def new_plot(algo,SelectLine, SelectSlot):
         f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color=color))
         f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color='black', fill = None))
         f = ax.text(y, x+0.1,slot[1:] , **style,  ha='center', weight='bold') 
+        
+    for x,y in ListWall: 
+        f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black'))    
+    
     f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
     return  fig
 
