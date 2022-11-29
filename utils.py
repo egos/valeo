@@ -469,7 +469,7 @@ def new_plot(algo,SelectLine, SelectSlot):
     Ymax , Xmax = A0.shape
     PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee"}
     fig, ax = plt.subplots(figsize = (8,8))
-
+    f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
     f = ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
     # masked = np.ma.masked_where(A0 <= 1, A0)
     MinOffset = LenPath*0.03
@@ -495,7 +495,7 @@ def new_plot(algo,SelectLine, SelectSlot):
     for x,y in ListWall: 
         f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black'))    
     
-    f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
+    
     return  fig
 
 def Path1(A,start): 
