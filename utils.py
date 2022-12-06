@@ -43,6 +43,7 @@ def load_data_brut(file, select = None):
 
     Clist = Comb['C']
     Pompes  = [DataCategorie['Pompe']['Unique'][0]]* len(Comb['P'])
+    PompesSelect = DataCategorie['Pompe']['Unique']
     Pvals   = [DataCategorie['Pompe']['Values'][Pompes[0]][i] for i in ['a','b','c']]
     Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
     Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
@@ -70,6 +71,9 @@ def load_data_brut(file, select = None):
         DataCategorie =  DataCategorie,
         Tuyau = ['Ta'],
         Pompes = Pompes, 
+        PompesSelect = PompesSelect,
+        Npa = 2,
+        Npc = 2,
         Pvals = Pvals,     
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
@@ -85,54 +89,77 @@ def load_data_brut(file, select = None):
     algo = SimpleNamespace(**algo)
     return algo
 
-def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None): 
-     
+def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None): 
+    # print(algo.Pmax)
     dfline = algo.dfline
     D = algo.Comb    
     Clist = D['C']
     Ccount = len(D['C'])
+    PompesSelect = algo.PompesSelect
+    PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
         
-    # Elist = D['E']
-    # ElistMax = D['E']
-    # if ElistMax >  algo.Pmax : 
     ElistMax = np.random.choice(D['E'],algo.Pmax) if len(D['E']) >  algo.Pmax  else D['E']
-    
-    if NewCtoE is not None : CtoE = NewCtoE
+    #EcMax = algo.Pmax 
+        
+    if NewCtoE is not None : 
+        # si repro on verifie que le nombre de EV slot est < a Pmax
+        EcMax = algo.Pmax 
+        # NewCtoE = np.array([0,1,2,0])
+        Elist = np.unique(NewCtoE)
+        Ecount = len(Elist)
+        n = Ecount -  EcMax 
+        if n > 0:
+            Edrop = np.random.choice(Elist,n, replace=False)
+            Edispo = Elist[~np.isin(Elist, Edrop)]
+            mask = np.isin(NewCtoE,Edrop)
+            NewCtoE[mask] = np.random.choice(Edispo,mask.sum())
+        
+        CtoE = NewCtoE
+        
     else : CtoE = np.random.choice(ElistMax,Ccount)
-    # else : CtoE = np.random.choice(D['E'],Ccount)
-
     
     d = collections.defaultdict(list)
     for i in range(Ccount): 
         d[CtoE[i]].append(D['C'][i])
     Econnect = dict(sorted(d.items()))
     Edist = dict(sorted(d.items()))
-    # Econnect = dict(collections.Counter(CtoE))
     Elist = sorted(Econnect)
     Ecount = len(Elist)      
-        
+    
     if row is not None :  
+
         if Ecount > row.Ecount:
-            # print(D['P'],Ecount - row.Ecount)
-            # NewEtoP = np.random.randint(0,len(D['P']),Ecount - row.Ecount)
-            # NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
+            
             NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
             EtoP = np.append(row.EtoP, NewEtoP)
+            
+            for pt in row.Ptype: PompesSelect.remove(pt)  
+            NewPtype = np.random.choice(PompesSelect,Ecount - row.Ecount, replace=False)
+            Ptype = np.append(row.Ptype, NewPtype)
+            
         elif Ecount < row.Ecount : 
             EtoP = np.random.choice(row.EtoP,Ecount)
+            Ptype = np.random.choice(row.Ptype,Ecount, replace=False)
             # print("Ecount",EtoP)
         else :
-            EtoP = row.EtoP
+            EtoP  = row.EtoP
+            Ptype = row.Ptype
         # print(NewCtoE , 'avant',row.Elist,row.EtoP,'apres',Elist,EtoP,row.Ecount, Ecount)
-    else : EtoP = np.random.choice(D['P'],Ecount)
-    if NewPtoE is not None : EtoP = NewPtoE
+    else : 
+        EtoP = np.random.choice(D['P'],Ecount)
+        Ptype = np.random.choice(PompesSelect,Ecount, replace=False)
+    if IniEtoP is not None : 
+        EtoP = IniEtoP
+        Ptype = np.random.choice(PompesSelect,Ecount, replace=False)
     
     d = collections.defaultdict(list)
-    for i in range(Ecount):      d[EtoP[i]].append(Elist[i]) 
+    for i in range(Ecount): 
+        d[EtoP[i]].append(Elist[i]) 
     Pconnect = dict(sorted(d.items()))   
-    # Pconnect = dict(collections.Counter(EtoP))
     Plist = sorted(Pconnect)
+    
     Pcount = len(Plist)    
+    
     
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
@@ -145,25 +172,23 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
     
     algo.Nindiv += 1
     col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
-           'Pconnect','Plist','Pcount', 'List_EtoC','List_PtoE',
+           'Pconnect','Plist','Pcount','Ptype', 'List_EtoC','List_PtoE',
            'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
     l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
-         Pconnect,Plist,Pcount, List_EtoC,List_PtoE,
+         Pconnect,Plist,Pcount,Ptype, List_EtoC,List_PtoE,
          dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
     algo.indivs.append(indiv)
     algo.Nrepro +=1    
+    
     # calcul debit
-    d =  Calcul_Debit(algo ,indiv, False)
-    # col  = ['PressionList', 'DebitList','Debit']
-    # indiv.update({(c): d[c] for c in col})
+    d =  Calcul_Debit(algo ,indiv, split = False)
     indiv.update(d)
-    d =  Calcul_Debit(algo ,indiv, True)
-    d = {k + '_S' : v for k,v in d.items()}
-    indiv.update(d)
-    # d =  Calcul_Debit(algo ,indiv, True)
-    # indiv.update({(c +'_g'): d[c] for c in col})
+    
+    # d =  Calcul_Debit(algo ,indiv, split =  True)
+    # d = {k + '_S' : v for k,v in d.items()}
+    # indiv.update(d)
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
@@ -180,7 +205,7 @@ def indiv_create(algo, row = None, NewCtoE = None, NewPtoE = None):
         
     return indiv
 
-def Indiv_reverse(Name,algo):
+def Indiv_reverse(Name,algo, Ptype = None):
     NameList = Name.split(',')
     Clist = algo.Clist
     CtoE = {}
@@ -201,7 +226,7 @@ def Indiv_reverse(Name,algo):
     CtoE = list(d.values())
     d = dict(sorted(EtoP.items()))
     EtoP = list(d.values())
-    indiv = indiv_create(algo, row = None, NewCtoE = CtoE, NewPtoE = EtoP)
+    indiv = indiv_create(algo, row = None, NewCtoE = CtoE, IniEtoP = EtoP)
     return indiv
 
 def calcul_Masse_cout(indiv, algo): 
@@ -210,21 +235,23 @@ def calcul_Masse_cout(indiv, algo):
     # confs = algo.confs
 
     for Categorie in ['Pompe', 'Tuyau','EV']:
+        v = algo.DataCategorie[Categorie]['Values']
         if Categorie == 'Pompe' : 
-            Factor = indiv['Ecount']
-            Name = [algo.Pompes[0]]
+            Ptype = indiv['Ptype']
+            dmasse[Categorie] = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Masse'] for pt in Ptype]))
+            dcout[Categorie]  = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Cout']  for pt in Ptype]))
         if Categorie == 'Tuyau' :
             Factor = indiv['dist']
             Name = algo.Tuyau
+            dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
+            dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
         if Categorie == 'EV' :
             Ccount = len(algo.Comb['C'])
             Factor = Ccount
             Name = algo.EV  
-        # print(Factor, Name)    
-        v = algo.DataCategorie[Categorie]['Values']
-        dmasse[Categorie] = int(sum([Factor *v[n]['Masse'] for n in Name]))
-        dcout[Categorie]  = int(sum([Factor *v[n]['Cout']  for n in Name]))
-        
+            dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
+            dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
+            
     dmasse['Reservoir'] = 600
     dcout['Reservoir']  = 30  
     info = [dmasse, dcout]
@@ -316,11 +343,11 @@ def indiv_init(algo, pop):
     
     return df
 
-def debit(algo, d_EtoC_list,d_PtoE,Clist, group = True, split = True):
+def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, group = True, split = True):
     if not group : split = False
 
     p = [-5.16e-04, -1.54e-02, 4.87]
-    p = algo.Pvals
+    p = [algo.DataCategorie['Pompe']['Values'][pt][i] for i in ['a','b','c']]
 
     cE0 = 7.64e-04
     coef_E = 0 if split else cE0
@@ -354,6 +381,7 @@ def Calcul_Debit(algo ,indiv, split):
     Econnect = indiv['Econnect']
     Pconnect = indiv['Pconnect']
     EtoP = indiv['EtoP']
+    Ptype = indiv['Ptype']
     Pression = []
     Debit = []
     # Data = {}
@@ -364,6 +392,7 @@ def Calcul_Debit(algo ,indiv, split):
     grouped = False
     for i, (e,EClist) in enumerate(Econnect.items()):
         p = EtoP[i]
+        pt = Ptype[i]
         name = 'P{}-E{}'.format(p,e)
         VerifGroup = np.isin(Group,  EClist)
         # EClistTotal = [EClist]
@@ -375,7 +404,7 @@ def Calcul_Debit(algo ,indiv, split):
             if len(EClist)>0: # bug avec calcul array
                 d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
                 d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-                res = debit(algo, d_EtoC_list,d_PtoE, EClist, grouped, split = split)
+                res = debit(algo, d_EtoC_list,d_PtoE, EClist,pt, grouped, split = split)
 
                 Debit = Debit + list(res['Qi'])
                 Pi = list(res['Pi'])

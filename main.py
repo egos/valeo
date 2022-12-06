@@ -28,10 +28,11 @@ Col_drop   = []
 
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
+ColResults = ['dist', 'PressionList','DebitList','Masse','Cout']
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie', 'DictLine','DictPos','dist']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
-menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 0)
+menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 
 if 'algo' not in session_state: 
     print(' ')
@@ -76,7 +77,9 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : 
                 Group.append(c)
             
-        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc"            
+        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc" 
+        Npa = int(col[len(Clist)].number_input(label= 'Npa',key='Npa' ,  value= 2))    
+        Npc = int(col[len(Clist)].number_input(label= 'Npa',key='Npc' , value= 2))       
         submitted = st.form_submit_button("Submit & Reset")      
         if submitted:
             print('submitted Slots') 
@@ -88,11 +91,22 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
             algo.Group = Group
+            
+            algo.Npa = Npa
+            algo.Npc = Npc
+            algo.Pmax = Npa + Npc
+            print(algo.Pmax )
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
         # print('file',file)
 
+if st.sidebar.checkbox("Show Conf files :"):        
+    d = {k : v for k,v in vars(algo).items() if k not in keydrop}
+    s = pd.Series(d).rename('Val').astype(str)
+    s.index= s.index.astype(str)
+    # st.sidebar.json(d, expanded=True) 
+    st.sidebar.table(s)
     
 if menu == 'Input':
     st.subheader('INPUT')
@@ -117,14 +131,7 @@ if menu == 'Input':
     dfslot.columns = ('y','x')    
     c1, c2 = st.columns([0.8,0.2])  
     c1.table(dfline.style.format(precision = 2))
-    c2.table(dfslot) 
-    
-    if st.sidebar.checkbox("Show Conf files :"):        
-        d = {k : v for k,v in vars(algo).items() if k not in keydrop}
-        s = pd.Series(d).rename('Val').astype(str)
-        s.index = s.index.astype(str)
-        # st.sidebar.json(d, expanded=True) 
-        st.sidebar.table(s)
+    c2.table(dfslot)  
       
 if menu == 'Algo':  
     
@@ -141,7 +148,7 @@ if menu == 'Algo':
         algo.Nlim = c6.number_input(label  = 'Pression limite', value = algo.Nlim, min_value = 0.0, max_value = 5.0, step = 0.1, help =txt)
         txt = "Maximum de pompe disponible"
         options = list(range(1,len(algo.Comb['E']) +1))
-        algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
+        # algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
         
         txt = 'permet de generer des indivs avec leur Name ex E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
@@ -150,7 +157,7 @@ if menu == 'Algo':
         NameIndiv = st.text_input('generation individu par nom', default,help = txt)
         
         
-        c1,c2,c3,c4, c5  = st.columns(5)              
+        c1,c2,c3,c4, c5, c6  = st.columns(6)              
         if c1.button('RESET'):
             print('Params : RESET')
             algo.df = indiv_init(algo, algo.pop)
@@ -195,8 +202,9 @@ if menu == 'Algo':
                 session_state['algo'] = algo 
                
         algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
-        if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))      : Col_drop += ColAlgo
-        if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme)) : Col_drop += ColSysteme
+        if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))       : Col_drop += ColAlgo
+        if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme))  : Col_drop += ColSysteme
+        if c6.checkbox('Hide Results Columns', value = True, help = str(ColResults)) : Col_drop += ColResults
                               
         df1 = algo.df
         df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
@@ -215,14 +223,7 @@ if menu == 'Algo':
     st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
              str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
              '-params :',algo.pop,algo.epoch,algo.fitness, algo.crossover, algo.mutation)
-    
-    if st.sidebar.checkbox("Show Conf files :"):        
-        d = {k : v for k,v in vars(algo).items() if k not in keydrop}
-        s = pd.Series(d).rename('Val').astype(str)
-        s.index = s.index.astype(str)
-        # st.sidebar.json(d, expanded=True) 
-        st.sidebar.table(s)
-    
+        
     with st.expander("Dataframe", True):
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
         dfx = df1.drop(columns= Col_drop)
