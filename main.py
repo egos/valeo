@@ -64,42 +64,56 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
     with st.form("Slots"):    
             
         Clist = algo.Clist     
+        Nclist = list(range(len(Clist)))
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
-        # ListCategorie = ['Pompe', 'Nozzle']
+
         col = st.columns(len(Clist) + 1)
+        
+        Npa = int(col[0].number_input(label= 'Npa',key='Npa' , value= 2))    
+        Npc = int(col[0].number_input(label= 'Npc',key='Npc' , value= 2))    
+        
         Nozzles = []
-        Group = []
+        d = collections.defaultdict(list)
         for i in range(len(Clist)):            
             c = Clist[i]
-            # print(Ctype, i, c)
-            Nozzle =  col[i].selectbox(str(c),Ctype, index = 0)            
-            Nozzles.append(Nozzle)            
-            if  col[i].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : 
-                Group.append(c)
-            
-        Pompe = "Pa" if not col[len(Clist)].checkbox('pompe 3') else "Pc" 
-        Npa = int(col[len(Clist)].number_input(label= 'Npa',key='Npa' ,  value= 2))    
-        Npc = int(col[len(Clist)].number_input(label= 'Npa',key='Npc' , value= 2))       
+            Nozzle =  col[i+1].selectbox(str(c),Ctype, index = 0)            
+            Nozzles.append(Nozzle)
+            Gr = col[i+1].selectbox(str(c),Nclist, index = 0, label_visibility  = "hidden") 
+            d[Gr].append(i)        
+
+        d = dict(sorted(d.items())) 
+        d2 = collections.defaultdict(list)  
+        rd = {}      
+        for key , val in d.items():
+            if len(val) > 1 : 
+                d2[key] = val
+                for i in val : rd[i] = key
+            else : 
+                d2[0].append(val[0]) 
+                rd[val[0]] = 0
+        d2[0] = sorted(d2[0])     
+        #if col[i+1].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)       
         submitted = st.form_submit_button("Submit & Reset")      
+        
         if submitted:
             print('submitted Slots') 
-            # file = {'SheetMapName' : algo.SheetMapName, 'uploaded_file' : algo.uploaded_file} 
+
             algo = load_data_brut(file)
-            algo.Pompes  = [Pompe] * len(algo.Comb['P'])
-            algo.Pvals =  [algo.DataCategorie['Pompe']['Values'][Pompe][i] for i in ['a','b','c']]
+            algo.GroupDict = dict(sorted(d2.items())) 
+            algo.GroupDict = rd
+
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
-            algo.Group = Group
             
             algo.Npa = Npa
             algo.Npc = Npc
             algo.Pmax = Npa + Npc
-            print(algo.Pmax )
+            algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
+            
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
-        # print('file',file)
 
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
@@ -151,10 +165,10 @@ if menu == 'Algo':
         # algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
         
-        txt = 'permet de generer des indivs avec leur Name ex E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
+        txt = 'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  ''
-        NameIndiv = st.text_input('generation individu par nom', default,help = txt)
+        NameIndiv = st.text_input('E1-C0,E1-C1,E1-C2,E1-C3,P1-E1', default,help = txt)
         
         
         c1,c2,c3,c4, c5, c6  = st.columns(6)              

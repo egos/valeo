@@ -142,3 +142,61 @@ def plot_(algo,dflineSelect, dfsSelect, name):
     #         algo = load_data_brut(file, select)
     #         algo.df = indiv_init(algo, pop)
     #         session_state['algo'] = algo
+    
+    
+    
+    
+def Calcul_Debit(algo ,indiv, split):
+    D = algo.Comb  
+    Group = algo.Group  
+    Clist = D['C']
+    Econnect = indiv['Econnect']
+    Pconnect = indiv['Pconnect']
+    EtoP = indiv['EtoP']
+    Ptype = indiv['Ptype']
+    Pression = []
+    Debit = []
+    # Data = {}
+    # Pression_C = []
+    # on loop sur chaque EV pour connect to C et faire calcul Pt Qt coté pompe et Pi Qi coté Capteur
+    Cpression = {}
+    Cdebit = {}
+    grouped = False
+    for i, (e,EClist) in enumerate(Econnect.items()):
+        p = EtoP[i]
+        pt = Ptype[i]
+        name = 'P{}-E{}'.format(p,e)
+        VerifGroup = np.isin(Group,  EClist)
+        # EClistTotal = [EClist]
+        # if VerifGroup.all() & (len(Group) > 0):
+        EClistTotal = [[i for i in EClist if i in Group], [i for i in EClist if i not in Group]]          
+        grouped = True
+        for j,  EClist in enumerate(EClistTotal):
+            if j >0 : grouped = False # bascule a No group apres le passage group 
+            if len(EClist)>0: # bug avec calcul array
+                d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
+                d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+                res = debit(algo, d_EtoC_list,d_PtoE, EClist,pt, grouped, split = split)
+
+                Debit = Debit + list(res['Qi'])
+                Pi = list(res['Pi'])
+                PressionConnect = dict(zip(EClist, Pi))
+                Cpression.update(PressionConnect)
+                
+                Qi = list(res['Qi'])
+                Cdebit.update(dict(zip(EClist, Qi)))
+                
+                # Data[name] = res        
+                # Pression = Pression + list(res['Pi'])          
+                # print(dc,dp,Clist,list(res['Pi']))
+                # Pression_C = Pression_C + [PressionConnect]
+                # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
+    PressionList = [Cpression[i] for i in D['C']]
+    DebitList    = [Cdebit[i] for i in D['C']]
+    # print(Cpression)
+    SumDebit = round(sum(Debit),1)
+    # keys = ['info','Data','Pression','Debit','SumDebit']
+    # vals = [info, Data,Pression, Debit, SumDebit]     
+    keys = ['PressionList','DebitList','Debit']
+    vals = [PressionList, DebitList, SumDebit] 
+    return dict(zip(keys,vals))

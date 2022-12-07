@@ -42,9 +42,6 @@ def load_data_brut(file, select = None):
                     }         
 
     Clist = Comb['C']
-    Pompes  = [DataCategorie['Pompe']['Unique'][0]]* len(Comb['P'])
-    PompesSelect = DataCategorie['Pompe']['Unique']
-    Pvals   = [DataCategorie['Pompe']['Values'][Pompes[0]][i] for i in ['a','b','c']]
     Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
     Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
     Nvals  = dict(zip(Clist, Nvals))
@@ -53,7 +50,8 @@ def load_data_brut(file, select = None):
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
         Group = [],
-        pop = 50,
+        GroupDict = {},
+        pop = 10,
         fitness = 'dist',
         crossover = 20,
         mutation = 20,
@@ -69,12 +67,10 @@ def load_data_brut(file, select = None):
         indivs = [],
         df = [],
         DataCategorie =  DataCategorie,
-        Tuyau = ['Ta'],
-        Pompes = Pompes, 
-        PompesSelect = PompesSelect,
+        Tuyau = ['Ta'],     
         Npa = 2,
         Npc = 2,
-        Pvals = Pvals,     
+        PompesSelect = ['Pa'] * 2 + ['Pc'] * 2,  
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,               
@@ -158,8 +154,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     Pconnect = dict(sorted(d.items()))   
     Plist = sorted(Pconnect)
     
-    Pcount = len(Plist)    
-    
+    Pcount = len(Plist)        
     
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
@@ -232,8 +227,7 @@ def Indiv_reverse(Name,algo, Ptype = None):
 def calcul_Masse_cout(indiv, algo): 
     dmasse = {}
     dcout = {}
-    # confs = algo.confs
-
+    
     for Categorie in ['Pompe', 'Tuyau','EV']:
         v = algo.DataCategorie[Categorie]['Values']
         if Categorie == 'Pompe' : 
@@ -376,7 +370,7 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, group = True, split = True):
 
 def Calcul_Debit(algo ,indiv, split):
     D = algo.Comb  
-    Group = algo.Group  
+    gr = algo.GroupDict 
     Clist = D['C']
     Econnect = indiv['Econnect']
     Pconnect = indiv['Pconnect']
@@ -394,31 +388,31 @@ def Calcul_Debit(algo ,indiv, split):
         p = EtoP[i]
         pt = Ptype[i]
         name = 'P{}-E{}'.format(p,e)
-        VerifGroup = np.isin(Group,  EClist)
-        # EClistTotal = [EClist]
-        # if VerifGroup.all() & (len(Group) > 0):
-        EClistTotal = [[i for i in EClist if i in Group], [i for i in EClist if i not in Group]]          
-        grouped = True
-        for j,  EClist in enumerate(EClistTotal):
-            if j >0 : grouped = False # bascule a No group apres le passage group 
-            if len(EClist)>0: # bug avec calcul array
-                d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in EClist])
-                d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-                res = debit(algo, d_EtoC_list,d_PtoE, EClist,pt, grouped, split = split)
+        d = collections.defaultdict(list)
+        # differencier groupe et non groupé dans Eclist
+        for c in EClist:
+            d[gr[c]].append(c)
+        
+        for g,ClistG in d.items():
+            if g == 0 : grouped = False
+            else : grouped = True
+            d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in ClistG])
+            d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+            res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped, split = split)
 
-                Debit = Debit + list(res['Qi'])
-                Pi = list(res['Pi'])
-                PressionConnect = dict(zip(EClist, Pi))
-                Cpression.update(PressionConnect)
-                
-                Qi = list(res['Qi'])
-                Cdebit.update(dict(zip(EClist, Qi)))
-                
-                # Data[name] = res        
-                # Pression = Pression + list(res['Pi'])          
-                # print(dc,dp,Clist,list(res['Pi']))
-                # Pression_C = Pression_C + [PressionConnect]
-                # print(i, j ,Group,grouped, EClistTotal ,EClist, PressionConnect)
+            Debit = Debit + list(res['Qi'])
+            Pi = list(res['Pi'])
+            PressionConnect = dict(zip(ClistG, Pi))
+            Cpression.update(PressionConnect)
+            
+            Qi = list(res['Qi'])
+            Cdebit.update(dict(zip(ClistG, Qi)))
+            
+            # Data[name] = res        
+            # Pression = Pression + list(res['Pi'])          
+            # print(dc,dp,Clist,list(res['Pi']))
+            # Pression_C = Pression_C + [PressionConnect]
+            # print(i, j ,grouped, d.items() ,EClist, PressionConnect)
     PressionList = [Cpression[i] for i in D['C']]
     DebitList    = [Cdebit[i] for i in D['C']]
     # print(Cpression)
