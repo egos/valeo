@@ -14,6 +14,7 @@ import copy
 from types import SimpleNamespace
 import matplotlib.patches as mpatch
 
+
 def load_data_brut(file, select = None):
     print('Init algo namespace')
     uploaded_file = file['uploaded_file']
@@ -49,8 +50,8 @@ def load_data_brut(file, select = None):
     algo = dict(
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
-        Group = [],
-        GroupDict = {},
+        # Group = [],
+        GroupDict = dict(zip(Clist,[0] * len(Clist))),
         pop = 10,
         fitness = 'dist',
         crossover = 20,
@@ -98,12 +99,12 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     #EcMax = algo.Pmax 
         
     if NewCtoE is not None : 
-        # si repro on verifie que le nombre de EV slot est < a Pmax
-        EcMax = algo.Pmax 
+        # si repro on verifie que le nombre de EV slot : nombre P  < Pmax
+        Pmax = algo.Pmax 
         # NewCtoE = np.array([0,1,2,0])
         Elist = np.unique(NewCtoE)
         Ecount = len(Elist)
-        n = Ecount -  EcMax 
+        n = Ecount -  Pmax 
         if n > 0:
             Edrop = np.random.choice(Elist,n, replace=False)
             Edispo = Elist[~np.isin(Elist, Edrop)]
@@ -389,10 +390,10 @@ def Calcul_Debit(algo ,indiv, split):
         pt = Ptype[i]
         name = 'P{}-E{}'.format(p,e)
         d = collections.defaultdict(list)
-        # differencier groupe et non groupé dans Eclist
+        # differencier groupe et non groupé dans Eclist        
         for c in EClist:
             d[gr[c]].append(c)
-        
+            
         for g,ClistG in d.items():
             if g == 0 : grouped = False
             else : grouped = True

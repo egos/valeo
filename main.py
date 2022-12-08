@@ -67,40 +67,44 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         Nclist = list(range(len(Clist)))
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
 
-        col = st.columns(len(Clist) + 1)
         
-        Npa = int(col[0].number_input(label= 'Npa',key='Npa' , value= 2))    
-        Npc = int(col[0].number_input(label= 'Npc',key='Npc' , value= 2))    
+        c1, c2 = st.columns(2)
+        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 2))    
+        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))    
         
+        col = st.columns(len(Clist))
         Nozzles = []
         d = collections.defaultdict(list)
+        
         for i in range(len(Clist)):            
             c = Clist[i]
-            Nozzle =  col[i+1].selectbox(str(c),Ctype, index = 0)            
+            Nozzle =  col[i].selectbox(str(c),Ctype, index = 0)            
             Nozzles.append(Nozzle)
-            Gr = col[i+1].selectbox(str(c),Nclist, index = 0, label_visibility  = "hidden") 
-            d[Gr].append(i)        
-
+            Gr = col[i].selectbox(str(c),Nclist, index = 0, label_visibility  = "hidden") 
+            d[Gr].append(i)  
+             
+            
+        # creation DictGroup , les group a 1 elem ==> gr 0
         d = dict(sorted(d.items())) 
-        d2 = collections.defaultdict(list)  
-        rd = {}      
+        # d2 = collections.defaultdict(list)  
+        gr = {}      
         for key , val in d.items():
             if len(val) > 1 : 
-                d2[key] = val
-                for i in val : rd[i] = key
+                # d2[key] = val
+                for i in val : gr[i] = key
             else : 
-                d2[0].append(val[0]) 
-                rd[val[0]] = 0
-        d2[0] = sorted(d2[0])     
-        #if col[i+1].checkbox(label = 'Grouped', key = 'Grouped'+str(i)) : Group.append(c)       
+                # d2[0].append(val[0]) 
+                gr[val[0]] = 0
+        # d2[0] = sorted(d2[0])     
         submitted = st.form_submit_button("Submit & Reset")      
         
         if submitted:
+            
             print('submitted Slots') 
 
             algo = load_data_brut(file)
-            algo.GroupDict = dict(sorted(d2.items())) 
-            algo.GroupDict = rd
+            # algo.GroupDict = dict(sorted(d2.items())) 
+            algo.GroupDict = gr
 
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
