@@ -86,25 +86,29 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             
         # creation DictGroup , les group a 1 elem ==> gr 0
         d = dict(sorted(d.items())) 
+        
         # d2 = collections.defaultdict(list)  
-        gr = {}      
+        GroupDict = {}    
         for key , val in d.items():
             if len(val) > 1 : 
                 # d2[key] = val
-                for i in val : gr[i] = key
+                for i in val : 
+                    GroupDict[i] = key
             else : 
                 # d2[0].append(val[0]) 
-                gr[val[0]] = 0
+                GroupDict[val[0]] = 0
         # d2[0] = sorted(d2[0])     
         submitted = st.form_submit_button("Submit & Reset")      
-        
+        GroupDict = dict(sorted(GroupDict.items())) 
+        GroupDict = np.array(list(GroupDict.values()))
         if submitted:
             
             print('submitted Slots') 
 
             algo = load_data_brut(file)
             # algo.GroupDict = dict(sorted(d2.items())) 
-            algo.GroupDict = gr
+            algo.GroupDict = GroupDict
+            algo.Group = ~(GroupDict == 0).all()
 
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
@@ -118,7 +122,6 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
-
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
     s = pd.Series(d).rename('Val').astype(str)

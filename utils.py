@@ -46,12 +46,15 @@ def load_data_brut(file, select = None):
     Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
     Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
     Nvals  = dict(zip(Clist, Nvals))
-        
+    GroupDict = dict(zip(Clist,[0] * len(Clist)))
+    GroupDict = np.zeros(len(Clist), dtype= int)
+    Group = ~(GroupDict == 0).all()
+    
     algo = dict(
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
-        # Group = [],
-        GroupDict = dict(zip(Clist,[0] * len(Clist))),
+        Group = Group,
+        GroupDict = GroupDict,
         pop = 10,
         fitness = 'dist',
         crossover = 20,
