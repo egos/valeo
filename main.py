@@ -28,7 +28,7 @@ Col_drop   = []
 
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-ColResults = ['dist', 'PressionList','DebitList','Masse','Cout']
+ColResults = ['dist', 'PressionList','DebitList']
 keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie', 'DictLine','DictPos','dist']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 

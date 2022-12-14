@@ -75,6 +75,7 @@ def load_data_brut(file, select = None):
         Npa = 2,
         Npc = 2,
         PompesSelect = ['Pa'] * 2 + ['Pc'] * 2,  
+        PompeB = True,
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,               
@@ -153,11 +154,29 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         Ptype = np.random.choice(PompesSelect,Ecount, replace=False)
     
     d = collections.defaultdict(list)
+    d2 = collections.defaultdict(list)
     for i in range(Ecount): 
         d[EtoP[i]].append(Elist[i]) 
+        d2[EtoP[i]].append(Ptype[i])
     Pconnect = dict(sorted(d.items()))   
     Plist = sorted(Pconnect)
+    PtypeCo = dict(sorted(d2.items()))     
     
+    # Pompe 2 on change 'Pa' en Pb si pas de group et PompeB True (les vals de Pb sont divisé par 2)
+    if algo.PompeB & (not algo.Group) :         
+        for slot , ptList in PtypeCo.items():
+            # print(slot , ptList)
+            idx = []
+            for i, pt in enumerate(ptList): 
+                if pt =='Pa' :
+                    idx.append(i)
+                if len(idx) == 2: 
+                    ptList[idx[0]] = 'Pb'
+                    ptList[idx[1]] = 'Pb'
+                    idx = []
+                    # print('change')
+            PtypeCo[slot] = ptList
+       
     Pcount = len(Plist)        
     
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
@@ -171,10 +190,10 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     
     algo.Nindiv += 1
     col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
-           'Pconnect','Plist','Pcount','Ptype', 'List_EtoC','List_PtoE',
+           'Pconnect','Plist','Pcount','Ptype','PtypeCo', 'List_EtoC','List_PtoE',
            'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
     l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
-         Pconnect,Plist,Pcount,Ptype, List_EtoC,List_PtoE,
+         Pconnect,Plist,Pcount,Ptype,PtypeCo, List_EtoC,List_PtoE,
          dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
@@ -191,6 +210,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
+
     
     # Cond = False
     # for i, (e,EClist) in enumerate(Econnect.items()):
@@ -236,8 +256,17 @@ def calcul_Masse_cout(indiv, algo):
         v = algo.DataCategorie[Categorie]['Values']
         if Categorie == 'Pompe' : 
             Ptype = indiv['Ptype']
-            dmasse[Categorie] = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Masse'] for pt in Ptype]))
-            dcout[Categorie]  = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Cout']  for pt in Ptype]))
+            masse = 0
+            cout = 0
+            for pt in Ptype: 
+                factor = 0.5 if pt == 'Pb' else 1
+                masse += factor * algo.DataCategorie[Categorie]['Values'][pt]['Masse']
+                cout  += factor * algo.DataCategorie[Categorie]['Values'][pt]['Cout'] 
+            
+            # dmasse[Categorie] = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Masse'] for pt in Ptype]))
+            # dcout[Categorie]  = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Cout']  for pt in Ptype]))
+            dmasse[Categorie] = int(masse)
+            dcout[Categorie]  = int(cout)
         if Categorie == 'Tuyau' :
             Factor = indiv['dist']
             Name = algo.Tuyau
