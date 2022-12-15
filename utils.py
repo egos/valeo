@@ -75,7 +75,8 @@ def load_data_brut(file, select = None):
         Npa = 2,
         Npc = 2,
         PompesSelect = ['Pa'] * 2 + ['Pc'] * 2,  
-        PompeB = True,
+        PompeB = False,
+        Split = 'Deactivate', 
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
         Nvals = Nvals,               
@@ -164,7 +165,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     
     # Pompe 2 on change 'Pa' en Pb si pas de group et PompeB True (les vals de Pb sont divisé par 2)
     PompeCountFinal = []
-    if algo.PompeB & (not algo.Group) :         
+    if algo.PompeB :         
         for slot , ptList in PtypeCo.items():
             # print(slot , ptList)
             idx = []
@@ -180,7 +181,6 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
                 PompeCountFinal.append(pt)
                     # print('change')
             PtypeCo[slot] = ptList
-
        
     Pcount = len(Plist)        
     
@@ -209,19 +209,21 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
+    # print(indiv)
     algo.indivs.append(indiv)
     algo.Nrepro +=1    
     
     # calcul debit
-    d =  Calcul_Debit(algo ,indiv, split = False)
+    d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
     indiv.update(d)
     
-    # d =  Calcul_Debit(algo ,indiv, split =  True)
-    # d = {k + '_S' : v for k,v in d.items()}
-    # indiv.update(d)
+    d =  Calcul_Debit(algo ,indiv, Split = 'Forced')
+    d = {k + '_S' : v for k,v in d.items()}
+    indiv.update(d)
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
+    print(info)
 
     
     # Cond = False
@@ -286,6 +288,7 @@ def calcul_Masse_cout(indiv, algo):
             dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
         if Categorie == 'EV' :
             Ccount = len(algo.Comb['C'])
+            Ccount = sum([len(l) for l in indiv['Esplit'].values()])
             Factor = Ccount
             Name = algo.EV  
             dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
@@ -296,7 +299,7 @@ def calcul_Masse_cout(indiv, algo):
     info = [dmasse, dcout]
     Masse = round(sum(dmasse.values()),2)
     Cout = round(sum(dcout.values()),2)
-    
+    # print(info)
     return  info, { 'Masse' : Masse, 'Cout' : Cout}
 
 def calcul_Masse_cout_S(indiv, algo): 
@@ -368,22 +371,24 @@ def Mutation(row, algo):
     return indiv
 
 def indiv_init(algo, pop):
-    algo.Nindiv = 0 
-    algo.indivs = []
-    algo.epoch = 0
-    algo.Nrepro = 0
-    L = []
-    for i in range(pop):        
-        indiv = indiv_create(algo)        
-        L.append(indiv)
-    df = pd.DataFrame(L)
-    df = df.drop_duplicates(subset='Name_txt')
-    df = df.reset_index(drop = True)
+    df = []
+    if pop >0 : 
+        algo.Nindiv = 0 
+        algo.indivs = []
+        algo.epoch = 0
+        algo.Nrepro = 0
+        L = []
+        for i in range(pop):        
+            indiv = indiv_create(algo)        
+            L.append(indiv)
+        df = pd.DataFrame(L)
+        df = df.drop_duplicates(subset='Name_txt')
+        df = df.reset_index(drop = True)
     
     return df
 
-def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, group = True, split = True):
-    if not group : split = False
+def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
+    if not grouped : split = False
 
     p = [-5.16e-04, -1.54e-02, 4.87]
     p = [algo.DataCategorie['Pompe']['Values'][pt][i] for i in ['a','b','c']]
@@ -397,7 +402,7 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, group = True, split = True):
     coef_d  = 2.35e-04    
     
     A = coef_E + d_EtoC_list * coef_d + coef_C 
-    Z = ( A**-0.5).sum() if group else A**-0.5
+    Z = ( A**-0.5).sum() if grouped else A**-0.5
     coef_E = cE0 if split else 0
     As = p[0] - (coef_d * d_PtoE) - 1/(Z**2) - coef_E
     Bs = p[1]
@@ -413,8 +418,9 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, group = True, split = True):
     val = [v.round(2) for v in val]
     return dict(zip(key,val))
 
-def Calcul_Debit(algo ,indiv, split):
+def Calcul_Debit(algo ,indiv, Split):
     D = algo.Comb  
+    Group = algo.Group
     gr = algo.GroupDict 
     Clist = D['C']
     Econnect = indiv['Econnect']
@@ -429,6 +435,8 @@ def Calcul_Debit(algo ,indiv, split):
     Cpression = {}
     Cdebit = {}
     grouped = False
+    EsplitDict = collections.defaultdict(list)
+    VerifPression = True
     for i, (e,EClist) in enumerate(Econnect.items()):
         p = EtoP[i]
         pt = Ptype[i]
@@ -439,34 +447,54 @@ def Calcul_Debit(algo ,indiv, split):
             d[gr[c]].append(c)
             
         for g,ClistG in d.items():
+            
             if g == 0 : grouped = False
             else : grouped = True
+            
             d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in ClistG])
             d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-            res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped, split = split)
-
-            Debit = Debit + list(res['Qi'])
-            Pi = list(res['Pi'])
+            
+            if grouped : 
+                if Split ==  'Deactivate' :
+                    res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = False)
+                    for c in ClistG : EsplitDict[e].append(c) 
+                else   :
+                    res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = True)              
+                    Pi = list(res['Pi'])         
+                    VerifPression = (np.array(Pi) < algo.Nlim).any()
+                    if VerifPression & (Split == 'Auto'):
+                        res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = False)     
+                        for c in ClistG : EsplitDict[e].append(c)   
+                    else : 
+                        #Split == Forced
+                        EsplitDict[e].append(tuple(ClistG))      
+            else : 
+                res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, False, split = False)          
+                for c in ClistG : EsplitDict[e].append(c)
+                                
+            Pi = list(res['Pi']) 
             PressionConnect = dict(zip(ClistG, Pi))
             Cpression.update(PressionConnect)
             
-            Qi = list(res['Qi'])
+            Qi = list(res['Qi'])            
             Cdebit.update(dict(zip(ClistG, Qi)))
+            Debit = Debit + list(res['Qi'])                
             
             # Data[name] = res        
             # Pression = Pression + list(res['Pi'])          
             # print(dc,dp,Clist,list(res['Pi']))
             # Pression_C = Pression_C + [PressionConnect]
-            # print(i, j ,grouped, d.items() ,EClist, PressionConnect)
+            # print(i,e,EClist, grouped, VerifPression, g,ClistG, PressionConnect, dict(EsplitDict))
     PressionList = [Cpression[i] for i in D['C']]
     DebitList    = [Cdebit[i] for i in D['C']]
     # print(Cpression)
     SumDebit = round(sum(Debit),1)
     # keys = ['info','Data','Pression','Debit','SumDebit']
     # vals = [info, Data,Pression, Debit, SumDebit]     
-    keys = ['PressionList','DebitList','Debit']
-    vals = [PressionList, DebitList, SumDebit] 
-    return dict(zip(keys,vals))
+    keys = ['PressionList','DebitList','Esplit','Debit']
+    vals = [PressionList, DebitList,dict(EsplitDict), SumDebit] 
+    d = dict(zip(keys,vals))
+    return d
 
 def new_import(dfmap):
     # print('new_import')

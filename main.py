@@ -67,12 +67,12 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         Nclist = list(range(len(Clist)))
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
 
-        
-        c1, c2,c3 = st.columns(3)
+        SplitText = 'si no group = Deactivate'
+        c1, c2,c3,c4 = st.columns(4)
         Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 2))    
         Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))  
-        PompeB = c3.checkbox(label= 'Pompe B')
-        
+        PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
+        Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
         col = st.columns(len(Clist))
         Nozzles = []
         d = collections.defaultdict(list)
@@ -82,12 +82,9 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             Nozzle =  col[i].selectbox(str(c),Ctype, index = 0)            
             Nozzles.append(Nozzle)
             Gr = col[i].selectbox(str(c),Nclist, index = 0, label_visibility  = "hidden") 
-            d[Gr].append(i)  
-             
-            
+            d[Gr].append(i)               
         # creation DictGroup , les group a 1 elem ==> gr 0
-        d = dict(sorted(d.items())) 
-        
+        d = dict(sorted(d.items()))    
         # d2 = collections.defaultdict(list)  
         GroupDict = {}    
         for key , val in d.items():
@@ -110,11 +107,13 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             # algo.GroupDict = dict(sorted(d2.items())) 
             algo.GroupDict = GroupDict
             algo.Group = ~(GroupDict == 0).all()
+            algo.PompeB = PompeB & (not algo.Group)
+            if not algo.Group : Split = 'Deactivate'
+            algo.Split  = Split
 
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
-            algo.PompeB = PompeB
             
             algo.Npa = Npa
             algo.Npc = Npc
@@ -123,8 +122,10 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
-            print('submitted : Elements Type')
             
+            
+            print('submitted : Elements Type')
+st.write('Group = ',algo.Group, 'Pompe_B = ',algo.PompeB , 'Split = ', algo.Split)            
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
     s = pd.Series(d).rename('Val').astype(str)
@@ -179,13 +180,31 @@ if menu == 'Algo':
         default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  ''
         NameIndiv = st.text_input('E1-C0,E1-C1,E1-C2,E1-C3,P1-E1', default,help = txt)
+        NameIndiv = NameIndiv.replace(" ",'').split(';')
         
-        
-        c1,c2,c3,c4, c5, c6  = st.columns(6)              
+        c1,c2,c3,c4, c5, c6  = st.columns(6) 
+        algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
+        if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))       : Col_drop += ColAlgo
+        if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme))  : Col_drop += ColSysteme
+        if c6.checkbox('Hide Results Columns', value = True, help = str(ColResults)) : Col_drop += ColResults
+               
         if c1.button('RESET'):
-            print('Params : RESET')
-            algo.df = indiv_init(algo, algo.pop)
-            session_state['algo'] = algo             
+            print('Params : RESET')              
+            if (NameIndiv != ['']):
+                L = []
+                for Name in NameIndiv: 
+                    if Name != '' :
+                        indiv = Indiv_reverse(Name,algo)             
+                        L.append(indiv)
+                df = pd.DataFrame(L)
+                df = df.drop_duplicates(subset='Name_txt')
+                df = df.reset_index(drop = True)
+                algo.df = df
+                session_state['algo'] = algo 
+            else : 
+                algo.df = indiv_init(algo, algo.pop)
+                session_state['algo'] = algo 
+                          
         if c2.button('RUN'):
             print("Params : RUN")   
             latest_iteration = st.empty()                 
@@ -225,24 +244,9 @@ if menu == 'Algo':
                 algo.df = pd.concat([df0, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
                 session_state['algo'] = algo 
                
-        algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
-        if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))       : Col_drop += ColAlgo
-        if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme))  : Col_drop += ColSysteme
-        if c6.checkbox('Hide Results Columns', value = True, help = str(ColResults)) : Col_drop += ColResults
-                              
-        df1 = algo.df
-        df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
-        dfline = algo.dfline
-        NameIndiv = NameIndiv.replace(" ",'').split(';')
-        if NameIndiv != ['']:
-            L = []
-            for Name in NameIndiv: 
-                if Name != '' :
-                    indiv = Indiv_reverse(Name,algo)             
-                    L.append(indiv)
-            df1 = pd.DataFrame(L)
-            df1 = df1.drop_duplicates(subset='Name_txt')
-            df1 = df1.reset_index(drop = True)
+    df1 = algo.df
+    df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
+    dfline = algo.dfline    
 
     st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
              str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
