@@ -68,9 +68,10 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
 
         
-        c1, c2 = st.columns(2)
+        c1, c2,c3 = st.columns(3)
         Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 2))    
-        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))    
+        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))  
+        PompeB = c3.checkbox(label= 'Pompe B')
         
         col = st.columns(len(Clist))
         Nozzles = []
@@ -113,6 +114,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.Nozzles = Nozzles
             Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
             algo.Nvals = dict(zip(Clist, Nvals))
+            algo.PompeB = PompeB
             
             algo.Npa = Npa
             algo.Npc = Npc
@@ -122,6 +124,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             print('submitted : Elements Type')
+            
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
     s = pd.Series(d).rename('Val').astype(str)

@@ -163,6 +163,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     PtypeCo = dict(sorted(d2.items()))     
     
     # Pompe 2 on change 'Pa' en Pb si pas de group et PompeB True (les vals de Pb sont divisé par 2)
+    PompeCountFinal = []
     if algo.PompeB & (not algo.Group) :         
         for slot , ptList in PtypeCo.items():
             # print(slot , ptList)
@@ -173,9 +174,13 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
                 if len(idx) == 2: 
                     ptList[idx[0]] = 'Pb'
                     ptList[idx[1]] = 'Pb'
+                    PompeCountFinal.append('Pb')
                     idx = []
+            if (pt =='Pa') & (len(idx) == 1):
+                PompeCountFinal.append(pt)
                     # print('change')
             PtypeCo[slot] = ptList
+
        
     Pcount = len(Plist)        
     
@@ -195,6 +200,13 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
          Pconnect,Plist,Pcount,Ptype,PtypeCo, List_EtoC,List_PtoE,
          dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
+    
+    # print colonne PompeCountFinal
+    if algo.PompeB & (not algo.Group) :
+        idx = 11
+        col.insert(idx,'PompeCountFinal')
+        l.insert(idx,PompeCountFinal)
+        
     # indiv = SimpleNamespace(**dict(zip(col,l)))
     indiv = dict(zip(col,l))
     algo.indivs.append(indiv)
