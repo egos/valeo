@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 import itertools 
 import math
+from io import BytesIO
 from math import factorial as f
 from datetime import timedelta
 from streamlit import session_state
@@ -15,6 +16,22 @@ from types import SimpleNamespace
 import matplotlib.patches as mpatch
 
 
+def export_excel(algo):
+    confs = algo.confs
+    dfmap = algo.dfmap
+    dfline = algo.dfline
+    
+    output = BytesIO()
+
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')   
+    confs.to_excel(writer, sheet_name='confs')  
+    dfmap.to_excel(writer, sheet_name='map') 
+    dfline.to_excel(writer, sheet_name='lines') 
+
+    writer.save()
+    processed_data = output.getvalue()
+    return processed_data
+
 def load_data_brut(file, select = None):
     print('Init algo namespace')
     uploaded_file = file['uploaded_file']
@@ -22,7 +39,7 @@ def load_data_brut(file, select = None):
     uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
     # print('algo', uploaded_file)
     
-    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, header=None)
+    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
     DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap)
     dfline = pd.DataFrame(DictLine).T
@@ -31,7 +48,8 @@ def load_data_brut(file, select = None):
 
     CombAll = list(DictPos.keys())
     
-    confs = pd.read_excel(uploaded_file, sheet_name= 'confs')
+    confs = pd.read_excel(uploaded_file, sheet_name= 'confs', index_col=0)
+    print(confs)
     DataCategorie = {}
     mask = confs['Actif'].notnull()
     df = confs[mask].copy()
@@ -53,6 +71,7 @@ def load_data_brut(file, select = None):
     algo = dict(
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
+        dfmap = dfmap,
         Group = Group,
         GroupDict = GroupDict,
         pop = 10,
@@ -211,8 +230,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     indiv = dict(zip(col,l))
     # print(indiv)
     algo.indivs.append(indiv)
-    algo.Nrepro +=1    
-    
+    algo.Nrepro +=1        
     # calcul debit
     d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
     indiv.update(d)
@@ -223,8 +241,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
-    print(info)
-
+    # print(info)
     
     # Cond = False
     # for i, (e,EClist) in enumerate(Econnect.items()):
@@ -389,6 +406,7 @@ def indiv_init(algo, pop):
 
 def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
     if not grouped : split = False
+    PompeType = pt
 
     p = [-5.16e-04, -1.54e-02, 4.87]
     p = [algo.DataCategorie['Pompe']['Values'][pt][i] for i in ['a','b','c']]
@@ -409,7 +427,10 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
     Cs = p[2]
     delta = (Bs**2) - (4 * As * Cs)
     Qt  = np.array((- Bs - delta**0.5)/(2*As))
+    
     Pt = np.array(Qt**2 / Z**2)
+    # print(Pt)
+    if PompeType == 'Pc' :  Pt = 2.75 * Pt/Pt
     a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
     Qi = (Pt / A)**0.5
     Pi = coef_C * (Qi**2)

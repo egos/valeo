@@ -29,7 +29,7 @@ Col_drop   = []
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 ColResults = ['dist', 'PressionList','DebitList']
-keydrop= ["confs", "dfslot","dfline","indivs","df",'A0','DataCategorie', 'DictLine','DictPos','dist']
+keydrop= ["confs", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
@@ -125,7 +125,8 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             
             
             print('submitted : Elements Type')
-st.write('Group = ',algo.Group, 'Pompe_B = ',algo.PompeB , 'Split = ', algo.Split)            
+st.write('Group = ',algo.Group, 'Pompe_B = ',algo.PompeB , 'Split = ', algo.Split)    
+        
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
     s = pd.Series(d).rename('Val').astype(str)
@@ -134,7 +135,11 @@ if st.sidebar.checkbox("Show Conf files :"):
     st.sidebar.table(s)
     
 if menu == 'Input':
-    st.subheader('INPUT')
+    st.subheader('INPUT')    
+    
+    st.download_button(label='📥 download input data template',
+                                data= export_excel(algo),
+                                file_name= 'input.xlsx')
     
     Col1 = ['a','b','c']
     Format = dict(zip(Col1,["{:.2e}"]))
