@@ -49,7 +49,7 @@ def load_data_brut(file, select = None):
     CombAll = list(DictPos.keys())
     
     confs = pd.read_excel(uploaded_file, sheet_name= 'confs', index_col=0)
-    print(confs)
+    # print(confs)
     DataCategorie = {}
     mask = confs['Actif'].notnull()
     df = confs[mask].copy()
@@ -235,9 +235,9 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
     indiv.update(d)
     
-    d =  Calcul_Debit(algo ,indiv, Split = 'Forced')
-    d = {k + '_S' : v for k,v in d.items()}
-    indiv.update(d)
+    # d =  Calcul_Debit(algo ,indiv, Split = 'Forced')
+    # d = {k + '_S' : v for k,v in d.items()}
+    # indiv.update(d)
     
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
@@ -486,9 +486,10 @@ def Calcul_Debit(algo ,indiv, Split):
                     if VerifPression & (Split == 'Auto'):
                         res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = False)     
                         for c in ClistG : EsplitDict[e].append(c)   
+                    #Split == Forced
                     else : 
-                        #Split == Forced
-                        EsplitDict[e].append(tuple(ClistG))      
+                        if len(ClistG) > 1 :EsplitDict[e].append(tuple(ClistG))   
+                        else : EsplitDict[e].append(ClistG[0]) 
             else : 
                 res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, False, split = False)          
                 for c in ClistG : EsplitDict[e].append(c)
