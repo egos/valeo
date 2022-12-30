@@ -155,12 +155,14 @@ if menu == 'Input':
     c1.table(dfInput.style.format(Format, na_rep=' '))
     c2.pyplot(fig) 
     
-    dfline = pd.DataFrame(algo.DictLine).T[['dist','path']]
+    dfline = pd.DataFrame(algo.dfline)
+    print(dfline.columns)
     dfline['path'] = dfline.path.astype(str)
     dfslot = pd.DataFrame(algo.DictPos).T
     dfslot.columns = ('y','x')    
     c1, c2 = st.columns([0.8,0.2])  
-    c1.table(dfline.style.format(precision = 2))
+    # c1.table(dfline.style.format(precision = 2))
+    c1.table(dfline)
     c2.table(dfslot)  
       
 if menu == 'Algo':  

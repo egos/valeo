@@ -19,7 +19,7 @@ import matplotlib.patches as mpatch
 def export_excel(algo):
     confs = algo.confs
     dfmap = algo.dfmap
-    dfline = algo.dfline
+    dfline = algo.dfline.drop(columns= 'path')
     
     output = BytesIO()
 
@@ -42,9 +42,19 @@ def load_data_brut(file, select = None):
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
     DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap)
+    sheet_names = pd.ExcelFile(uploaded_file).sheet_names
+    print(sheet_names)
+    
     dfline = pd.DataFrame(DictLine).T
     dfline.index.name = 'ID'
     dfline.reset_index(inplace = True)
+    dfline['durite'] = 4
+    if "lines" in sheet_names : 
+        print("Load line from excel")
+        lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
+        dfline['durite'] = lines_add['durite'].copy()
+        
+        # print(dfline)
 
     CombAll = list(DictPos.keys())
     
@@ -59,7 +69,15 @@ def load_data_brut(file, select = None):
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
                     }         
-
+    # print(DataCategorie['Tuyau'])
+    Dict_durite_val = {
+        4 : DataCategorie['Tuyau']['Values'][4]['a'],
+        8 : DataCategorie['Tuyau']['Values'][8]['a']
+    }
+    dfline['durite_val'] = dfline['durite'].map(Dict_durite_val)
+    # print(Dict_durite_val)
+    # print(dfline['durite_val'])
+    
     Clist = Comb['C']
     Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
     Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
@@ -90,7 +108,7 @@ def load_data_brut(file, select = None):
         indivs = [],
         df = [],
         DataCategorie =  DataCategorie,
-        Tuyau = ['Ta'],     
+        Tuyau = [4],     
         Npa = 2,
         Npc = 2,
         PompesSelect = ['Pa'] * 2 + ['Pc'] * 2,  
@@ -103,7 +121,8 @@ def load_data_brut(file, select = None):
         Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
-        dist = dfline.set_index('ID').dist.to_dict(),
+        dist   = dfline.set_index('ID').dist.to_dict(),
+        durite = dfline.set_index('ID').durite_val.to_dict(),
         A0 = A0,
         ListWall = ListWall
         )
@@ -404,7 +423,14 @@ def indiv_init(algo, pop):
     
     return df
 
-def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
+def debit(algo,debitinput, grouped = True, split = True):
+    # print(d_EtoC_list,d_PtoE,Clist)
+    pompe,ev,ClistG,pt = debitinput.values()
+    d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(ev,c)] for c in ClistG])
+    d_PtoE      = algo.dist['P{}-E{}'.format(pompe,ev)]
+    # Pdurite     = algo.durite['P{}-E{}'.format(p,e)]
+    # print(d_EtoC_list,d_PtoE,ClistG)
+    
     if not grouped : split = False
     PompeType = pt
 
@@ -415,14 +441,18 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
     coef_E = 0 if split else cE0
     
     coef_C  = 0.036
-    coef_C  = [algo.Nvals[i] for i in Clist]
+    coef_C  = [algo.Nvals[i] for i in ClistG]
     coef_C  = np.array(coef_C)
-    coef_d  = 2.35e-04    
+    coef_d_EtoC  = 2.35e-04
+    coef_d_EtoC = np.array([algo.durite['E{}-C{}'.format(ev,c)] for c in ClistG])
+    coef_d_PtoE = algo.durite['P{}-E{}'.format(pompe,ev)] 
+    print(coef_d_PtoE)
     
-    A = coef_E + d_EtoC_list * coef_d + coef_C 
+    A = coef_E + d_EtoC_list * coef_d_EtoC + coef_C 
+    # print(A)
     Z = ( A**-0.5).sum() if grouped else A**-0.5
     coef_E = cE0 if split else 0
-    As = p[0] - (coef_d * d_PtoE) - 1/(Z**2) - coef_E
+    As = p[0] - (coef_d_PtoE * d_PtoE) - 1/(Z**2) - coef_E
     Bs = p[1]
     Cs = p[2]
     delta = (Bs**2) - (4 * As * Cs)
@@ -430,7 +460,7 @@ def debit(algo, d_EtoC_list,d_PtoE,Clist,pt, grouped = True, split = True):
     
     Pt = np.array(Qt**2 / Z**2)
     # print(Pt)
-    if PompeType == 'Pc' :  Pt = 2.75 * Pt/Pt
+    if (PompeType == 'Pc') &  (Pt >= algo.Nlim).any():  Pt = algo.Nlim*1.1 * Pt/Pt
     a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
     Qi = (Pt / A)**0.5
     Pi = coef_C * (Qi**2)
@@ -474,24 +504,31 @@ def Calcul_Debit(algo ,indiv, Split):
             
             d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in ClistG])
             d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
+            Pdurite = algo.dfline.loc[algo.dfline.ID == 'P{}-E{}'.format(p,e), 'durite'].iloc[0]
+            debitinput = dict(
+                p = p,
+                e = e,
+                ClistG = ClistG,
+                pt = pt,                
+            )
             
             if grouped : 
                 if Split ==  'Deactivate' :
-                    res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = False)
+                    res = debit(algo,debitinput, grouped = True, split = False)
                     for c in ClistG : EsplitDict[e].append(c) 
                 else   :
-                    res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = True)              
+                    res = debit(algo,debitinput, grouped = True, split = True)              
                     Pi = list(res['Pi'])         
                     VerifPression = (np.array(Pi) < algo.Nlim).any()
                     if VerifPression & (Split == 'Auto'):
-                        res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, grouped = True, split = False)     
+                        res = debit(algo,debitinput, grouped = True, split = False)     
                         for c in ClistG : EsplitDict[e].append(c)   
                     #Split == Forced
                     else : 
                         if len(ClistG) > 1 :EsplitDict[e].append(tuple(ClistG))   
                         else : EsplitDict[e].append(ClistG[0]) 
             else : 
-                res = debit(algo, d_EtoC_list,d_PtoE, ClistG,pt, False, split = False)          
+                res = debit(algo,debitinput, False, split = False)          
                 for c in ClistG : EsplitDict[e].append(c)
                                 
             Pi = list(res['Pi']) 
