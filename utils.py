@@ -42,6 +42,7 @@ def load_data_brut(file, select = None):
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
     DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap)
+    # print(DictLine)
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
     print(sheet_names)
     
@@ -53,9 +54,12 @@ def load_data_brut(file, select = None):
         print("Load line from excel")
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
         dfline['durite'] = lines_add['durite'].copy()
-        
-        # print(dfline)
+        dfline['dist'] = lines_add['dist'].copy()
+    # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
+    DictLine = dfline.set_index('ID').to_dict(orient = 'index')
+    
 
+        
     CombAll = list(DictPos.keys())
     
     confs = pd.read_excel(uploaded_file, sheet_name= 'confs', index_col=0)
@@ -86,6 +90,18 @@ def load_data_brut(file, select = None):
     GroupDict = np.zeros(len(Clist), dtype= int)
     Group = ~(GroupDict == 0).all()
     
+    
+    Group0  = [0] * len(Clist)
+    Nature0 = [0] * len(Clist)
+    Limit0  = np.array([2] * len(Clist))
+    if "slot" in sheet_names:
+        dfc = pd.read_excel(uploaded_file, sheet_name= 'slot', index_col=0)
+        Group0 = dfc.group.tolist()        
+        # Ctype = algo.DataCategorie['Nozzle']['Unique']  
+        Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
+        Limit0 = dfc.limit.values
+        # print(dfc)
+    Nozzlelimits = Limit0
     algo = dict(
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
@@ -96,7 +112,8 @@ def load_data_brut(file, select = None):
         fitness = 'dist',
         crossover = 20,
         mutation = 20,
-        Nlim = 2.0,          
+        Nlim = 2.0,   
+        Nozzlelimits = Nozzlelimits,       
         Pmax = 3,
         Plot = False,
         dfline = dfline,
@@ -124,7 +141,10 @@ def load_data_brut(file, select = None):
         dist   = dfline.set_index('ID').dist.to_dict(),
         durite = dfline.set_index('ID').durite_val.to_dict(),
         A0 = A0,
-        ListWall = ListWall
+        ListWall = ListWall,
+        Group0 = Group0,
+        Nature0 = Nature0, 
+        Limit0 = Limit0,
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -266,10 +286,9 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     # for i, (e,EClist) in enumerate(Econnect.items()):
     #     Cond+= np.isin(algo.Group,  EClist).all()
     # indiv['Vg'] = Cond    
-    # indiv['Vp'] = False if  (np.array(indiv['Pression_s']) < algo.Nlim).any() else True
     # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     
-    indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nlim).any() else True 
+    indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nozzlelimits).any() else True 
     # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']      
         
     return indiv
@@ -446,7 +465,6 @@ def debit(algo,debitinput, grouped = True, split = True):
     coef_d_EtoC  = 2.35e-04
     coef_d_EtoC = np.array([algo.durite['E{}-C{}'.format(ev,c)] for c in ClistG])
     coef_d_PtoE = algo.durite['P{}-E{}'.format(pompe,ev)] 
-    print(coef_d_PtoE)
     
     A = coef_E + d_EtoC_list * coef_d_EtoC + coef_C 
     # print(A)
@@ -459,8 +477,10 @@ def debit(algo,debitinput, grouped = True, split = True):
     Qt  = np.array((- Bs - delta**0.5)/(2*As))
     
     Pt = np.array(Qt**2 / Z**2)
-    # print(Pt)
-    if (PompeType == 'Pc') &  (Pt >= algo.Nlim).any():  Pt = algo.Nlim*1.1 * Pt/Pt
+    print(Pt)
+    if (PompeType == 'Pc') &  (Pt >=  algo.Nozzlelimits[ClistG]).any():
+        Pt = algo.Nozzlelimits[ClistG]*1.1 #* Pt/Pt
+
     a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
     Qi = (Pt / A)**0.5
     Pi = coef_C * (Qi**2)
@@ -511,6 +531,7 @@ def Calcul_Debit(algo ,indiv, Split):
                 ClistG = ClistG,
                 pt = pt,                
             )
+            print(ClistG)
             
             if grouped : 
                 if Split ==  'Deactivate' :
@@ -519,7 +540,7 @@ def Calcul_Debit(algo ,indiv, Split):
                 else   :
                     res = debit(algo,debitinput, grouped = True, split = True)              
                     Pi = list(res['Pi'])         
-                    VerifPression = (np.array(Pi) < algo.Nlim).any()
+                    VerifPression = (np.array(Pi) < algo.Nozzlelimits[ClistG]).any()
                     if VerifPression & (Split == 'Auto'):
                         res = debit(algo,debitinput, grouped = True, split = False)     
                         for c in ClistG : EsplitDict[e].append(c)   

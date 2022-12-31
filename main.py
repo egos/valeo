@@ -29,7 +29,7 @@ Col_drop   = []
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 ColResults = ['dist', 'PressionList','DebitList']
-keydrop= ["confs", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist']
+keydrop= ['Nvals',"confs", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
@@ -57,6 +57,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         submitted = st.form_submit_button("Submit & Reset")
         if submitted: 
             print('submitted Map')
+            # session_state.clear()
             algo = load_data_brut(file)
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
@@ -68,21 +69,25 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
 
         SplitText = 'si no group = Deactivate'
-        c1, c2,c3,c4 = st.columns(4)
+        c1 ,c2 ,c3 ,c4 = st.columns(4)
         Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 2))    
         Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))  
         PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
         Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
         col = st.columns(len(Clist))
         Nozzles = []
+        Nozzlelimits = []
         d = collections.defaultdict(list)
         
         for i in range(len(Clist)):            
             c = Clist[i]
-            Nozzle =  col[i].selectbox(str(c),Ctype, index = 0)            
+            Nozzle =  col[i].selectbox(str(c),Ctype, index = algo.Nature0[i])            
             Nozzles.append(Nozzle)
-            Gr = col[i].selectbox(str(c),Nclist, index = 0, label_visibility  = "hidden") 
-            d[Gr].append(i)               
+            # Group0 = algo.Group0
+            Gr = col[i].selectbox(str(c),Nclist, index = algo.Group0[i], label_visibility  = "hidden") 
+            d[Gr].append(i)  
+            Nozzlelimit = col[i].number_input(str(c),value  = algo.Limit0[i],step =0.1, label_visibility  = "hidden") 
+            Nozzlelimits.append(Nozzlelimit)             
         # creation DictGroup , les group a 1 elem ==> gr 0
         d = dict(sorted(d.items()))    
         # d2 = collections.defaultdict(list)  
@@ -119,7 +124,7 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
             algo.Npc = Npc
             algo.Pmax = Npa + Npc
             algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
-            
+            algo.Nozzlelimits = np.array(Nozzlelimits)
             algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo
             
