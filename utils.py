@@ -20,6 +20,7 @@ def export_excel(algo):
     confs = algo.confs
     dfmap = algo.dfmap
     dfline = algo.dfline.drop(columns= 'path')
+    dfcapteur = algo.dfcapteur
     
     output = BytesIO()
 
@@ -27,7 +28,7 @@ def export_excel(algo):
     confs.to_excel(writer, sheet_name='confs')  
     dfmap.to_excel(writer, sheet_name='map') 
     dfline.to_excel(writer, sheet_name='lines') 
-    algo.dfcapteur.to_excel(writer, sheet_name='slot') 
+    dfcapteur.to_excel(writer, sheet_name='slot') 
 
     writer.save()
     processed_data = output.getvalue()
@@ -97,11 +98,20 @@ def load_data_brut(file, select = None):
     Limit0  = np.array([2] * len(Clist))
     if "slot" in sheet_names:
         dfc = pd.read_excel(uploaded_file, sheet_name= 'slot', index_col=0)
-        Group0 = dfc.group.tolist()        
-        # Ctype = algo.DataCategorie['Nozzle']['Unique']  
-        Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
-        Limit0 = dfc.limit.values
+        dfc.limit = dfc.limit.astype(float)
         # print(dfc)
+    else : 
+        dfc = pd.DataFrame()
+        dfc['capteur'] = ['C' + str(c) for c in Clist]
+        dfc['group'] = [0]*len(dfc)
+        dfc['nature'] = ['F']*len(dfc)
+        dfc['limit'] = [2.0]*len(dfc)
+        # print(dfc)
+    Group0 = dfc.group.tolist()        
+    # Ctype = algo.DataCategorie['Nozzle']['Unique']  
+    Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
+    Limit0 = dfc.limit.values
+
     Nozzlelimits = Limit0
     algo = dict(
         SheetMapName = SheetMapName,

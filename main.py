@@ -29,7 +29,7 @@ Col_drop   = []
 ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 ColResults = ['dist', 'PressionList','DebitList']
-keydrop= ['Nvals',"confs", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
+keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
 ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
