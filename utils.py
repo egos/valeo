@@ -58,9 +58,7 @@ def load_data_brut(file, select = None):
         dfline['durite'] = lines_add['durite'].copy()
         dfline['dist'] = lines_add['dist'].copy()
     # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
-    DictLine = dfline.set_index('ID').to_dict(orient = 'index')
-    
-
+    DictLine = dfline.set_index('ID').to_dict(orient = 'index')   
         
     CombAll = list(DictPos.keys())
     
@@ -151,6 +149,7 @@ def load_data_brut(file, select = None):
         Comb = Comb,
         CombAll = CombAll,
         dist   = dfline.set_index('ID').dist.to_dict(),
+        duriteType = dfline.set_index('ID').durite.to_dict(),
         durite = dfline.set_index('ID').durite_val.to_dict(),
         A0 = A0,
         ListWall = ListWall,
@@ -349,17 +348,21 @@ def calcul_Masse_cout(indiv, algo):
             for pt in Ptype: 
                 factor = 0.5 if pt == 'Pb' else 1
                 masse += factor * algo.DataCategorie[Categorie]['Values'][pt]['Masse']
-                cout  += factor * algo.DataCategorie[Categorie]['Values'][pt]['Cout'] 
-            
+                cout  += factor * algo.DataCategorie[Categorie]['Values'][pt]['Cout']             
             # dmasse[Categorie] = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Masse'] for pt in Ptype]))
             # dcout[Categorie]  = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Cout']  for pt in Ptype]))
             dmasse[Categorie] = int(masse)
             dcout[Categorie]  = int(cout)
         if Categorie == 'Tuyau' :
-            Factor = indiv['dist']
-            Name = algo.Tuyau
-            dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
-            dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
+            # Factor = indiv['dist']
+            # Name = algo.Tuyau
+            # dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
+            # dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
+            distPerLine = np.array([algo.dist[line] for line in indiv['Name']])
+            MassePerLine = np.array([v[algo.duriteType[line]]['Masse'] for line in indiv['Name']])
+            CoutPerLine  = np.array([v[algo.duriteType[line]]['Cout'] for line in indiv['Name']])
+            dmasse[Categorie] = (distPerLine * MassePerLine).sum()
+            dcout[Categorie]  = (distPerLine * CoutPerLine).sum()
         if Categorie == 'EV' :
             Ccount = len(algo.Comb['C'])
             Ccount = sum([len(l) for l in indiv['Esplit'].values()])
@@ -371,8 +374,11 @@ def calcul_Masse_cout(indiv, algo):
     dmasse['Reservoir'] = 600
     dcout['Reservoir']  = 30  
     info = [dmasse, dcout]
+    # print(dmasse.values())
     Masse = round(sum(dmasse.values()),2)
+    Masse = int(Masse)
     Cout = round(sum(dcout.values()),2)
+    Cout = int(Cout)
     # print(info)
     return  info, { 'Masse' : Masse, 'Cout' : Cout}
 
