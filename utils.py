@@ -27,6 +27,7 @@ def export_excel(algo):
     confs.to_excel(writer, sheet_name='confs')  
     dfmap.to_excel(writer, sheet_name='map') 
     dfline.to_excel(writer, sheet_name='lines') 
+    algo.dfcapteur.to_excel(writer, sheet_name='slot') 
 
     writer.save()
     processed_data = output.getvalue()
@@ -110,6 +111,7 @@ def load_data_brut(file, select = None):
         GroupDict = GroupDict,
         pop = 10,
         fitness = 'dist',
+        fitnessCompo = np.array([1,0,0]),
         crossover = 20,
         mutation = 20,
         Nlim = 2.0,   
@@ -145,6 +147,7 @@ def load_data_brut(file, select = None):
         Group0 = Group0,
         Nature0 = Nature0, 
         Limit0 = Limit0,
+        dfcapteur = dfc,
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -287,7 +290,13 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     #     Cond+= np.isin(algo.Group,  EClist).all()
     # indiv['Vg'] = Cond    
     # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
-    
+    ListFitness = ['dist','Masse','Cout']
+    fitness = 0
+    for i in range(3):
+        fit = ListFitness[i]
+        fitness+= indiv[fit] * algo.fitnessCompo[i]
+        
+    indiv['fitness']   = fitness
     indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nozzlelimits).any() else True 
     # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']      
         
@@ -477,8 +486,8 @@ def debit(algo,debitinput, grouped = True, split = True):
     Qt  = np.array((- Bs - delta**0.5)/(2*As))
     
     Pt = np.array(Qt**2 / Z**2)
-    print(Pt)
-    if (PompeType == 'Pc') &  (Pt >=  algo.Nozzlelimits[ClistG]).any():
+    # print(Pt)
+    if (PompeType == 'Pc') &  (Pt >=  algo.Nozzlelimits[ClistG]).all():
         Pt = algo.Nozzlelimits[ClistG]*1.1 #* Pt/Pt
 
     a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
@@ -531,7 +540,7 @@ def Calcul_Debit(algo ,indiv, Split):
                 ClistG = ClistG,
                 pt = pt,                
             )
-            print(ClistG)
+            # print(ClistG)
             
             if grouped : 
                 if Split ==  'Deactivate' :

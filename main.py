@@ -176,17 +176,29 @@ if menu == 'Algo':
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
         iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 1000,step = 1)
-        algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
+        # algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
         txt = "indivs selectionnés avec la meilleur fitness pour crossover => 2 enfants"
         algo.crossover = c4.number_input(label = 'Crossover',value = int(algo.crossover), min_value = 0, max_value  = 100,step = 10, help =txt)
         txt = "indivs selectionnés avec la meilleur fitness pour mutation  => 1 enfants"
         algo.mutation  = c5.number_input(label = 'Mutation', value = int(algo.mutation), min_value = 0, max_value  = 100,step = 10, help =txt)
-        txt = "limite de pression pour nettoyer les capteurs"
-        algo.Nlim = c6.number_input(label  = 'Pression limite', value = algo.Nlim, min_value = 0.0, max_value = 5.0, step = 0.1, help =txt)
+        # txt = "limite de pression pour nettoyer les capteurs"
+        # algo.Nlim = c6.number_input(label  = 'Pression limite', value = algo.Nlim, min_value = 0.0, max_value = 5.0, step = 0.1, help =txt)
         txt = "Maximum de pompe disponible"
         options = list(range(1,len(algo.Comb['E']) +1))
         # algo.Pmax = c7.selectbox(label  = 'Pompe limite',options = options,index = len(options)-1,  help =txt)
         session_state['algo'] = algo
+        
+        ListFitness = ['dist','Masse','Cout']
+        c = st.columns(3)
+        ListRes = []
+        for i in range(3): 
+            fit = ListFitness[i]
+            res  = c[i].number_input(label = fit,value = int(algo.fitnessCompo[i]*100), min_value = 0, max_value  = 100,step = 10, help ="")
+            res /= 100
+            ListRes.append(res)
+        algo.fitnessCompo = np.array(ListRes)
+
+            
         
         txt = 'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
@@ -226,14 +238,14 @@ if menu == 'Algo':
                 my_bar.progress((i+1)/iterations)
                 algo.epoch +=1
                 df0 = algo.df
-                df0 = df0.sort_values(algo.fitness).reset_index(drop = True)
+                df0 = df0.sort_values('fitness').reset_index(drop = True)
                 df1 = df0[df0.Alive].copy()
                 idxmaxCross = int(algo.crossover)
                 idxmaxMuta  = int(algo.mutation)
                 # if idxmaxCross <  2 : idxmaxCross = 2            
                 # if idxmaxMuta ==  0 : idxmaxMuta = 1
                 if idxmaxCross >  len(df1) : idxmaxCross = len(df1)            
-                if idxmaxMuta  >  len(df1) : idxmaxMuta = len(df1)
+                if idxmaxMuta  >  len(df1) : idxmaxMuta  = len(df1)
                 Ncross = int(idxmaxCross/2)
                 Nmuta  = int(idxmaxMuta)            
                 Lcross = df1[:idxmaxCross].index.values
@@ -257,12 +269,12 @@ if menu == 'Algo':
                 session_state['algo'] = algo 
                
     df1 = algo.df
-    df1 = df1.sort_values([algo.fitness]).reset_index(drop = True)
+    df1 = df1.sort_values(['fitness']).reset_index(drop = True)
     dfline = algo.dfline    
 
     st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
              str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
-             '-params :',algo.pop,algo.epoch,algo.fitness, algo.crossover, algo.mutation)
+             '-params :',algo.pop,algo.epoch,str(algo.fitnessCompo*100), algo.crossover, algo.mutation)
         
     with st.expander("Dataframe", True):
         # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
