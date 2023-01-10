@@ -26,11 +26,13 @@ Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
 Col_drop_2 = ['CtoE','EtoP']
 Col_drop   = []
 
-ColSysteme = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
+ColSysteme = ['Clist','Name','Name_txt','List_EtoC','List_PtoE']
 ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-ColResults = ['dist', 'PressionList','DebitList']
-keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs","df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
-ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g','Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
+ColResults = ['PressionList','DebitList','duriteVal']
+keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
+          "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
+ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
+            'Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 
@@ -70,8 +72,8 @@ with st.expander('Options : 🖱️ press submit for change take effect', True):
 
         SplitText = 'si no group = Deactivate'
         c1 ,c2 ,c3 ,c4 = st.columns(4)
-        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 2))    
-        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 2))  
+        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 4))    
+        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 0))  
         PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
         Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
         col = st.columns(len(Clist))
@@ -178,9 +180,10 @@ if menu == 'Algo':
         iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 1000,step = 1)
         # algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
         txt = "indivs selectionnés avec la meilleur fitness pour crossover => 2 enfants"
-        algo.crossover = c4.number_input(label = 'Crossover',value = int(algo.crossover), min_value = 0, max_value  = 100,step = 10, help =txt)
+        algo.crossover = c3.number_input(label = 'Crossover',value = int(algo.crossover), min_value = 0, max_value  = 100,step = 10, help =txt)
         txt = "indivs selectionnés avec la meilleur fitness pour mutation  => 1 enfants"
-        algo.mutation  = c5.number_input(label = 'Mutation', value = int(algo.mutation), min_value = 0, max_value  = 100,step = 10, help =txt)
+        algo.mutation  = c4.number_input(label = 'Mutation', value = int(algo.mutation), min_value = 0, max_value  = 100,step = 10, help =txt)
+        algo.BusActif  = c5.checkbox(label = 'Bus')
         # txt = "limite de pression pour nettoyer les capteurs"
         # algo.Nlim = c6.number_input(label  = 'Pression limite', value = algo.Nlim, min_value = 0.0, max_value = 5.0, step = 0.1, help =txt)
         txt = "Maximum de pompe disponible"
@@ -202,7 +205,7 @@ if menu == 'Algo':
         
         txt = 'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
         default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
-        default =  ''
+        default =  'E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3'
         NameIndiv = st.text_input('E1-C0,E1-C1,E1-C2,E1-C3,P1-E1', default,help = txt)
         NameIndiv = NameIndiv.replace(" ",'').split(';')
         
@@ -310,6 +313,7 @@ if menu == 'Algo':
                 for n in range(3):
                     SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
                 SelectLine = row.Name
+                if algo.Bus : SelectLine = row.Name_Bus
 
                 # fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
                 col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    

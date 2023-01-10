@@ -40,26 +40,27 @@ def load_data_brut(file, select = None):
     SheetMapName  = file ['SheetMapName']
     uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
     # print('algo', uploaded_file)
-    
+    DistFactor = 1
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
-    DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap)
+    DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap, DistFactor)
     # print(DictLine)
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
     print(sheet_names)
     
     dfline = pd.DataFrame(DictLine).T
+
     dfline.index.name = 'ID'
     dfline.reset_index(inplace = True)
-    dfline['durite'] = 4
+    dfline['duriteType'] = 4
     if "lines" in sheet_names : 
         print("Load line from excel")
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
-        dfline['durite'] = lines_add['durite'].copy()
+        dfline['duriteType'] = lines_add['duriteType'].copy()
         dfline['dist'] = lines_add['dist'].copy()
     # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
     DictLine = dfline.set_index('ID').to_dict(orient = 'index')   
-        
+  
     CombAll = list(DictPos.keys())
     
     confs = pd.read_excel(uploaded_file, sheet_name= 'confs', index_col=0)
@@ -78,7 +79,7 @@ def load_data_brut(file, select = None):
         4 : DataCategorie['Tuyau']['Values'][4]['a'],
         8 : DataCategorie['Tuyau']['Values'][8]['a']
     }
-    dfline['durite_val'] = dfline['durite'].map(Dict_durite_val)
+    dfline['duriteVal'] = dfline['duriteType'].map(Dict_durite_val)
     # print(Dict_durite_val)
     # print(dfline['durite_val'])
     
@@ -123,8 +124,7 @@ def load_data_brut(file, select = None):
         crossover = 20,
         mutation = 20,
         Nlim = 2.0,   
-        Nozzlelimits = Nozzlelimits,       
-        Pmax = 3,
+        Nozzlelimits = Nozzlelimits,      
         Plot = False,
         dfline = dfline,
         DictPos = DictPos,        
@@ -136,10 +136,12 @@ def load_data_brut(file, select = None):
         df = [],
         DataCategorie =  DataCategorie,
         Tuyau = [4],     
-        Npa = 2,
-        Npc = 2,
-        PompesSelect = ['Pa'] * 2 + ['Pc'] * 2,  
+        Npa = 4,
+        Npc = 0,
+        PompesSelect = ['Pa'] * 4 + ['Pc'] * 0,  
+        Pmax = 4,
         PompeB = False,
+        BusActif = True, 
         Split = 'Deactivate', 
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
@@ -149,8 +151,8 @@ def load_data_brut(file, select = None):
         Comb = Comb,
         CombAll = CombAll,
         dist   = dfline.set_index('ID').dist.to_dict(),
-        duriteType = dfline.set_index('ID').durite.to_dict(),
-        durite = dfline.set_index('ID').durite_val.to_dict(),
+        duriteType = dfline.set_index('ID').duriteType.to_dict(),
+        duriteVal  = dfline.set_index('ID').duriteVal.to_dict(),
         A0 = A0,
         ListWall = ListWall,
         Group0 = Group0,
@@ -176,14 +178,17 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     if NewCtoE is not None : 
         # si repro on verifie que le nombre de EV slot : nombre P  < Pmax
         Pmax = algo.Pmax 
+        
         # NewCtoE = np.array([0,1,2,0])
         Elist = np.unique(NewCtoE)
         Ecount = len(Elist)
         n = Ecount -  Pmax 
+        # print(Pmax, Ecount, n , NewCtoE)
         if n > 0:
             Edrop = np.random.choice(Elist,n, replace=False)
             Edispo = Elist[~np.isin(Elist, Edrop)]
             mask = np.isin(NewCtoE,Edrop)
+            
             NewCtoE[mask] = np.random.choice(Edispo,mask.sum())
         
         CtoE = NewCtoE
@@ -198,8 +203,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     Elist = sorted(Econnect)
     Ecount = len(Elist)      
     
-    if row is not None :  
-
+    if row is not None :          
         if Ecount > row.Ecount:
             
             NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
@@ -258,45 +262,84 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
         
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
-    dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist).to_dict()
-    dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
-    dist = round(dist,2)
+    
+    v = [algo.dist[line] for line in Name]
+    
+    dist_Connect = dict(zip(Name,v))
+    # dist_Connect = (dfline.loc[dfline.ID.isin(Name), ['ID','dist']].set_index('ID').dist).to_dict()
+    
     Name_txt = ','.join(Name)
     
-    algo.Nindiv += 1
-    col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
-           'Pconnect','Plist','Pcount','Ptype','PtypeCo', 'List_EtoC','List_PtoE',
-           'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
-    l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
-         Pconnect,Plist,Pcount,Ptype,PtypeCo, List_EtoC,List_PtoE,
-         dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
+    
+    # col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
+    #        'Pconnect','Plist','Pcount','Ptype','PtypeCo', 'List_EtoC','List_PtoE',
+    #        'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
+    # l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
+    #      Pconnect,Plist,Pcount,Ptype,PtypeCo, List_EtoC,List_PtoE,
+    #      dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
+    
+    indiv = dict(
+        Clist = Clist,
+        CtoE = CtoE,
+        Econnect = Econnect,
+        Elist =Elist,
+        Ecount = Ecount,
+        EtoP = EtoP,
+        Pconnect = Pconnect,
+        Plist = Plist,
+        Pcount = Pcount,
+        Ptype = Ptype,
+        PtypeCo = PtypeCo,
+        List_EtoC = List_EtoC,
+        List_PtoE = List_PtoE,
+        dist_Connect = dist_Connect,
+        Name = Name,
+        ID = algo.Nindiv,
+        Name_txt = Name_txt,
+        Epoch = algo.epoch,      
+    )
+    
     
     # print colonne PompeCountFinal
     if algo.PompeB & (not algo.Group) :
-        idx = 11
-        col.insert(idx,'PompeCountFinal')
-        l.insert(idx,PompeCountFinal)
+        # idx = 11
+        indiv['PompeCountFinal'] = PompeCountFinal
+        # col.insert(idx,'PompeCountFinal')
+        # l.insert(idx,PompeCountFinal)
         
     # indiv = SimpleNamespace(**dict(zip(col,l)))
-    indiv = dict(zip(col,l))
-    # print(indiv)
-    algo.indivs.append(indiv)
-    algo.Nrepro +=1        
-    # calcul debit
+    # indiv = dict(zip(col,l))
+
+    if algo.BusActif : 
+        dist_Connect , BusName = Bus_Connection(algo, indiv)
+        indiv['dist_Connect'] =  dist_Connect
+        indiv['BusName'] =  BusName
+        indiv['duriteVal'] = dict(zip(Name, [algo.duriteVal[line] for line in BusName]))
+        indiv['BusDist']   = dict(zip(Name, [algo.dist[line] for line in BusName]))
+    else : 
+        indiv['duriteVal'] = dict(zip(Name, [algo.duriteVal[line] for line in Name]))
+        indiv['BusName'] = []
+        indiv['BusDist'] = []
+    
+    dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
+    dist = sum([dist_Connect[line] for line in Name])
+    indiv['dist'] = round(dist,2)
+           
+    # calcul debit ['PressionList','DebitList','Esplit','Debit']
     d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
     indiv.update(d)
     
     # d =  Calcul_Debit(algo ,indiv, Split = 'Forced')
     # d = {k + '_S' : v for k,v in d.items()}
     # indiv.update(d)
-    
+    # algo.Bus = False    
+        
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
     # print(info)
     
     # Cond = False
-    # for i, (e,EClist) in enumerate(Econnect.items()):
-    #     Cond+= np.isin(algo.Group,  EClist).all()
+    # for i, (e,EClist) in enumerate(Econnect.items()):    #     Cond+= np.isin(algo.Group,  EClist).all()
     # indiv['Vg'] = Cond    
     # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     ListFitness = ['dist','Masse','Cout']
@@ -305,11 +348,56 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         fit = ListFitness[i]
         fitness+= indiv[fit] * algo.fitnessCompo[i]
         
-    indiv['fitness']   = fitness
+    indiv['fitness'] = fitness
     indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nozzlelimits).any() else True 
-    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp']      
-        
+    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp'] 
+         
+    algo.indivs.append(indiv)
+    algo.Nrepro +=1  
+    algo.Nindiv += 1   
     return indiv
+
+def Bus_Connection(algo, indiv):
+    New_dist_Connect = copy.deepcopy(indiv['dist_Connect'])
+    BusName = copy.deepcopy(indiv['Name'])
+    dfx0 = algo.dfline.copy()
+    dfx0['a'] = dfx0.ID.str.split('-').str[0]
+    dfx0['b'] = dfx0.ID.str.split('-').str[1]
+    Pconnect = indiv['Pconnect']
+    NameListNew  = []
+    DictMapName = {}
+    for i, (p,Elist) in enumerate(Pconnect.items()):
+
+        s = 'P{}'.format(p)
+        ElistName = ['E{}'.format(e) for e in Elist]
+        ListMask = [s] + ElistName
+        mask0 = dfx0.a.isin(ListMask) & dfx0.b.isin(ListMask)
+        dfx = dfx0[mask0].copy()
+        path,dist,lines = [s] ,[], []
+        # commence a s = Px et avance par iter sur le plus proche E & crop  dfx = dfline 
+        while len(dfx)>0:
+            mask = dfx.ID.str.contains(s)
+            x  = dfx[mask].dist.values.argmin()    
+            cx = dfx[mask][['a','b']].iloc[x].values
+            line = dfx[mask].iloc[x].ID
+            lines.append(line)
+            NameListNew.append(line)
+            dist.append(dfx[mask].dist.values.min())    
+            dfx = dfx[~mask]
+            s = cx[cx!=s][0]
+            path.append(s)
+            
+        distCumsum = np.array(dist).cumsum()
+        PxConnect = ['{}-{}'.format(path[0],s) for s in path[1:]]
+        DictMapName.update(dict(zip(PxConnect,lines)))
+        d = dict(zip(PxConnect,distCumsum))
+        New_dist_Connect.update(d)
+        # print(path,lines,dist, distCumsum, PxConnect)
+
+    # quelle galere obliger de passer par Series pour map les old  et new name 
+    BusName = pd.Series(BusName).replace(DictMapName).tolist()
+
+    return New_dist_Connect, BusName
 
 def Indiv_reverse(Name,algo, Ptype = None):
     NameList = Name.split(',')
@@ -332,6 +420,7 @@ def Indiv_reverse(Name,algo, Ptype = None):
     CtoE = list(d.values())
     d = dict(sorted(EtoP.items()))
     EtoP = list(d.values())
+    print(Clist,CtoE, EtoP)
     indiv = indiv_create(algo, row = None, NewCtoE = CtoE, IniEtoP = EtoP)
     return indiv
 
@@ -354,13 +443,14 @@ def calcul_Masse_cout(indiv, algo):
             dmasse[Categorie] = int(masse)
             dcout[Categorie]  = int(cout)
         if Categorie == 'Tuyau' :
-            # Factor = indiv['dist']
-            # Name = algo.Tuyau
-            # dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
-            # dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
-            distPerLine = np.array([algo.dist[line] for line in indiv['Name']])
-            MassePerLine = np.array([v[algo.duriteType[line]]['Masse'] for line in indiv['Name']])
-            CoutPerLine  = np.array([v[algo.duriteType[line]]['Cout'] for line in indiv['Name']])
+            # distPerLine  = np.array([algo.dist[line] for line in indiv['Name']])
+            distPerLine  = np.array(list(indiv['dist_Connect'].values()))
+            Name = indiv['Name']
+            if algo.BusActif: 
+                distPerLine  = np.array(list(indiv['BusDist'].values()))
+                Name = indiv['BusName']
+            MassePerLine = np.array([v[algo.duriteType[line]]['Masse'] for line in Name])
+            CoutPerLine  = np.array([v[algo.duriteType[line]]['Cout']  for line in Name])
             dmasse[Categorie] = (distPerLine * MassePerLine).sum()
             dcout[Categorie]  = (distPerLine * CoutPerLine).sum()
         if Categorie == 'EV' :
@@ -467,12 +557,11 @@ def indiv_init(algo, pop):
     
     return df
 
-def debit(algo,debitinput, grouped = True, split = True):
+def debit(algo,indiv,debitinput, grouped = True, split = True):
     # print(d_EtoC_list,d_PtoE,Clist)
     pompe,ev,ClistG,pt = debitinput.values()
     d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(ev,c)] for c in ClistG])
-    d_PtoE      = algo.dist['P{}-E{}'.format(pompe,ev)]
-    # Pdurite     = algo.durite['P{}-E{}'.format(p,e)]
+    d_PtoE      = indiv['dist_Connect']['P{}-E{}'.format(pompe,ev)]
     # print(d_EtoC_list,d_PtoE,ClistG)
     
     if not grouped : split = False
@@ -488,8 +577,10 @@ def debit(algo,debitinput, grouped = True, split = True):
     coef_C  = [algo.Nvals[i] for i in ClistG]
     coef_C  = np.array(coef_C)
     coef_d_EtoC  = 2.35e-04
-    coef_d_EtoC = np.array([algo.durite['E{}-C{}'.format(ev,c)] for c in ClistG])
-    coef_d_PtoE = algo.durite['P{}-E{}'.format(pompe,ev)] 
+    coef_d_EtoC = np.array([algo.duriteVal['E{}-C{}'.format(ev,c)] for c in ClistG])
+    # coef_d_PtoE = algo.duriteVal['P{}-E{}'.format(pompe,ev)] 
+    coef_d_PtoE = indiv['duriteVal']['P{}-E{}'.format(pompe,ev)] 
+    
     
     A = coef_E + d_EtoC_list * coef_d_EtoC + coef_C 
     # print(A)
@@ -521,6 +612,7 @@ def Calcul_Debit(algo ,indiv, Split):
     Clist = D['C']
     Econnect = indiv['Econnect']
     Pconnect = indiv['Pconnect']
+    dist_Connect = indiv['dist_Connect']
     EtoP = indiv['EtoP']
     Ptype = indiv['Ptype']
     Pression = []
@@ -548,33 +640,33 @@ def Calcul_Debit(algo ,indiv, Split):
             else : grouped = True
             
             d_EtoC_list = np.array([algo.dist['E{}-C{}'.format(e,c)] for c in ClistG])
-            d_PtoE = algo.dist['P{}-E{}'.format(p,e)]
-            Pdurite = algo.dfline.loc[algo.dfline.ID == 'P{}-E{}'.format(p,e), 'durite'].iloc[0]
+            d_PtoE = dist_Connect['P{}-E{}'.format(p,e)]
+            # d_PtoE = dist_Connect['P{}-E{}'.format(p,e)]
+            # print(d_EtoC_list, d_PtoE)
             debitinput = dict(
                 p = p,
                 e = e,
                 ClistG = ClistG,
                 pt = pt,                
             )
-            # print(ClistG)
-            
+            # print(ClistG)            
             if grouped : 
                 if Split ==  'Deactivate' :
-                    res = debit(algo,debitinput, grouped = True, split = False)
+                    res = debit(algo,indiv,debitinput, grouped = True, split = False)
                     for c in ClistG : EsplitDict[e].append(c) 
                 else   :
-                    res = debit(algo,debitinput, grouped = True, split = True)              
+                    res = debit(algo,indiv,debitinput, grouped = True, split = True)              
                     Pi = list(res['Pi'])         
                     VerifPression = (np.array(Pi) < algo.Nozzlelimits[ClistG]).any()
                     if VerifPression & (Split == 'Auto'):
-                        res = debit(algo,debitinput, grouped = True, split = False)     
+                        res = debit(algo,indiv,debitinput, grouped = True, split = False)     
                         for c in ClistG : EsplitDict[e].append(c)   
                     #Split == Forced
                     else : 
                         if len(ClistG) > 1 :EsplitDict[e].append(tuple(ClistG))   
                         else : EsplitDict[e].append(ClistG[0]) 
             else : 
-                res = debit(algo,debitinput, False, split = False)          
+                res = debit(algo,indiv,debitinput, False, split = False)          
                 for c in ClistG : EsplitDict[e].append(c)
                                 
             Pi = list(res['Pi']) 
@@ -601,16 +693,14 @@ def Calcul_Debit(algo ,indiv, Split):
     d = dict(zip(keys,vals))
     return d
 
-def new_import(dfmap):
-    # print('new_import')
-    
+def new_import(dfmap, DistFactor):
+    # print('new_import')    
     SlotColor = {'C' : 10, 'E': 20, 'P' : 30}
-    slots = ['C','P','E']
-    
+    slots = ['C','P','E']    
     
     A0 = dfmap.values
     Size = max(A0.shape)
-    DistFactor = 3 * Size / 3
+    DistFactor = Size * DistFactor
     
     Comb = collections.defaultdict(list)
     DictPos = {}    
@@ -659,6 +749,32 @@ def new_import(dfmap):
 
             DictLine[ID] = {'path' : path, 'dist' : dist}        
 
+    ListEv =  ['E' + str(n) for n in Comb['E']]
+    it = itertools.combinations(ListEv, 2)
+    ListEtoE = list(it)
+    ListEtoE
+    print(ListEtoE)
+
+    DictEtoE = {}
+    for begin, end in ListEtoE:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        goal = DictPos[end]        
+        path = Path2(A1.copy() ,start,  goal)
+        path = np.array(path)       
+        dist = (np.abs(np.diff(path.T)).sum() / DistFactor).round(2)
+
+        # if end[0] == 'C' : ID = begin + '-' + end
+        # elif begin[0] == 'P' : ID = begin + '-' + end    
+        # else :
+        ID = end + '-' + begin
+        DictEtoE[ID] = {'path' : path, 'dist' : dist}
+
+    DictLine.update(DictEtoE)
+    
+    
+    
     return DictLine, DictPos, A0,dict(Comb), ListWall
       
 def new_plot(algo,SelectLine, SelectSlot):
