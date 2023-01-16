@@ -150,7 +150,7 @@ def load_data_brut(file, select = None):
         Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
-        dist   = dfline.set_index('ID').dist.to_dict(),
+        dist       = dfline.set_index('ID').dist.astype(float).round(1).to_dict(),
         duriteType = dfline.set_index('ID').duriteType.to_dict(),
         duriteVal  = dfline.set_index('ID').duriteVal.to_dict(),
         A0 = A0,
@@ -255,7 +255,8 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
                 PompeCountFinal.append(pt)
                     # print('change')
             PtypeCo[slot] = ptList
-       
+    else : 
+        PompeCountFinal = Ptype   
     Pcount = len(Plist)        
     
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
@@ -270,14 +271,6 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     
     Name_txt = ','.join(Name)
     
-    
-    # col = ['Clist','CtoE','Econnect','Elist','Ecount', 'EtoP',
-    #        'Pconnect','Plist','Pcount','Ptype','PtypeCo', 'List_EtoC','List_PtoE',
-    #        'dist_Connect', 'dist', 'Name','ID', 'Name_txt','Epoch']
-    # l = [Clist, CtoE,Econnect,Elist,Ecount, EtoP,
-    #      Pconnect,Plist,Pcount,Ptype,PtypeCo, List_EtoC,List_PtoE,
-    #      dist_Connect, dist, Name,algo.Nindiv, Name_txt, algo.epoch]
-    
     indiv = dict(
         Clist = Clist,
         CtoE = CtoE,
@@ -288,8 +281,10 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         Pconnect = Pconnect,
         Plist = Plist,
         Pcount = Pcount,
+        Ptype0 = Ptype,
         Ptype = Ptype,
         PtypeCo = PtypeCo,
+        PompeCountFinal = PompeCountFinal,
         List_EtoC = List_EtoC,
         List_PtoE = List_PtoE,
         dist_Connect = dist_Connect,
@@ -297,29 +292,36 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         ID = algo.Nindiv,
         Name_txt = Name_txt,
         Epoch = algo.epoch,      
-    )
-    
+    )    
     
     # print colonne PompeCountFinal
     if algo.PompeB & (not algo.Group) :
-        # idx = 11
         indiv['PompeCountFinal'] = PompeCountFinal
-        # col.insert(idx,'PompeCountFinal')
-        # l.insert(idx,PompeCountFinal)
-        
-    # indiv = SimpleNamespace(**dict(zip(col,l)))
-    # indiv = dict(zip(col,l))
 
     if algo.BusActif : 
         dist_Connect , BusName = Bus_Connection(algo, indiv)
         indiv['dist_Connect'] =  dist_Connect
-        indiv['BusName'] =  BusName
+        indiv['BusName']   = BusName
         indiv['duriteVal'] = dict(zip(Name, [algo.duriteVal[line] for line in BusName]))
         indiv['BusDist']   = dict(zip(Name, [algo.dist[line] for line in BusName]))
+        
+        # partie pompe P rand sur pt dipo et replique sur len(ptype) =  tromper calcul debit
+        Ptype = []
+        PtypeCo = {}
+        PompeCountFinal = []
+        for p , ptList in indiv['PtypeCo'].items():
+            pt = np.random.choice(ptList)
+            Ptype += [pt] * len(ptList)
+            PtypeCo[p] = [pt] * len(ptList)
+            PompeCountFinal.append(pt)
+        indiv['Ptype']   = Ptype
+        indiv['PtypeCo'] = PtypeCo
+        indiv['PompeCountFinal'] = PompeCountFinal
+        
     else : 
         indiv['duriteVal'] = dict(zip(Name, [algo.duriteVal[line] for line in Name]))
-        indiv['BusName'] = []
-        indiv['BusDist'] = []
+        indiv['BusName']   = []
+        indiv['BusDist']   = []
     
     dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
     dist = sum([dist_Connect[line] for line in Name])
@@ -353,19 +355,22 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp'] 
          
     algo.indivs.append(indiv)
-    algo.Nrepro +=1  
+    algo.Nrepro += 1  
     algo.Nindiv += 1   
     return indiv
 
 def Bus_Connection(algo, indiv):
     New_dist_Connect = copy.deepcopy(indiv['dist_Connect'])
     BusName = copy.deepcopy(indiv['Name'])
+    Pconnect = indiv['Pconnect']
+    
     dfx0 = algo.dfline.copy()
     dfx0['a'] = dfx0.ID.str.split('-').str[0]
     dfx0['b'] = dfx0.ID.str.split('-').str[1]
-    Pconnect = indiv['Pconnect']
+    
     NameListNew  = []
     DictMapName = {}
+    
     for i, (p,Elist) in enumerate(Pconnect.items()):
 
         s = 'P{}'.format(p)
@@ -374,7 +379,9 @@ def Bus_Connection(algo, indiv):
         mask0 = dfx0.a.isin(ListMask) & dfx0.b.isin(ListMask)
         dfx = dfx0[mask0].copy()
         path,dist,lines = [s] ,[], []
-        # commence a s = Px et avance par iter sur le plus proche E & crop  dfx = dfline 
+        
+        # pour chaque slot de P commence avec s = Px et avance par iter sur le plus proche E & crop  dfx = dfline 
+        # l'astuce c'est que qu'on conserve les lines P-E mais en changeant les valeurs de dist
         while len(dfx)>0:
             mask = dfx.ID.str.contains(s)
             x  = dfx[mask].dist.values.argmin()    
@@ -396,6 +403,8 @@ def Bus_Connection(algo, indiv):
 
     # quelle galere obliger de passer par Series pour map les old  et new name 
     BusName = pd.Series(BusName).replace(DictMapName).tolist()
+    
+
 
     return New_dist_Connect, BusName
 
@@ -420,7 +429,7 @@ def Indiv_reverse(Name,algo, Ptype = None):
     CtoE = list(d.values())
     d = dict(sorted(EtoP.items()))
     EtoP = list(d.values())
-    print(Clist,CtoE, EtoP)
+    print('Indiv_reverse',Clist,CtoE, EtoP)
     indiv = indiv_create(algo, row = None, NewCtoE = CtoE, IniEtoP = EtoP)
     return indiv
 
@@ -431,11 +440,12 @@ def calcul_Masse_cout(indiv, algo):
     for Categorie in ['Pompe', 'Tuyau','EV']:
         v = algo.DataCategorie[Categorie]['Values']
         if Categorie == 'Pompe' : 
-            Ptype = indiv['Ptype']
+            Ptype = indiv['PompeCountFinal']
             masse = 0
             cout = 0
             for pt in Ptype: 
-                factor = 0.5 if pt == 'Pb' else 1
+                # factor = 0.5 if pt == 'Pb' else 1
+                factor = 1
                 masse += factor * algo.DataCategorie[Categorie]['Values'][pt]['Masse']
                 cout  += factor * algo.DataCategorie[Categorie]['Values'][pt]['Cout']             
             # dmasse[Categorie] = int(sum([algo.DataCategorie[Categorie]['Values'][pt]['Masse'] for pt in Ptype]))
