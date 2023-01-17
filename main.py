@@ -19,52 +19,55 @@ st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
 # Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10      
 
-Col_drop_1 = ['Clist','Name','Name_txt','dist_Connect','List_EtoC','List_PtoE']
-Col_drop_2 = ['Pression_s', 'Debit_s','SumDebit_s'] + ['Pression', 'Debit','SumDebit']
-Col_drop_2 = ['Pression_s', 'Debit_s'] + ['Pression_g', 'Debit_g']
-Col_drop_2 = ['Debit_s','SumDebit_s'] + ['Debit_g','SumDebit_g']
-Col_drop_2 = ['CtoE','EtoP']
-Col_drop   = []
-
-ColSysteme = ['Clist','Name','Name_txt','List_EtoC','List_PtoE']
-ColAlgo = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-ColResults = ['PressionList','DebitList','duriteVal']
+#conf file algo keys
 keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
-          "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite']
-ColDfVal = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
-            'Masse', 'Cout','Alive','Group', 'Vg', 'Vp','Vnp']
+          "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
+          'duriteType','duriteVal']
+
+ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
+ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
+ColResults = ['PressionList','DebitList','dist_Connect']
+ColBus     = ['BusName','BusDist']
+# col pour astype int
+ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
+            'Masse', 'Cout','Alive','Group']
+ColPompe = ['Ptype0', 'Ptype', 'PtypeCo']
+ColBase =  ['ID', 'Option', 'Pompes', 'Esplit', 'Debit','dist', 'Masse', 'Cout',
+            'fitness','Epoch', 'Alive','parent','Name_txt']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 
 if 'algo' not in session_state: 
     print(' ')
     print('BEGIN')
-    file = {'SheetMapName' : 'map', 'uploaded_file' : None}
+    File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : 1.0}
     
-    algo = load_data_brut(file)
-    algo.df = indiv_init(algo, pop)
+    algo = load_data_brut(File)
+    # algo.df = indiv_init(algo, pop)
     session_state['algo'] = algo
 else : 
     print('reload')
     algo = session_state['algo']
       
-with st.expander('Options : 🖱️ press submit for change take effect', True):
+with st.expander('input & pathfinding : 🖱️ press submit for change take effect', True):
 
     with st.form('Map excel sheet name'):
         c1, c2 = st.columns([0.6,0.4])
         
         uploaded_file = c1.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
         SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
-        file = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file}
+        DistFactor = c2.number_input(label = 'DistFactor ==> metre', value = 1.0)
+        File = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file, 'DistFactor' : DistFactor}
         submitted = st.form_submit_button("Submit & Reset")
         if submitted: 
             print('submitted Map')
             # session_state.clear()
-            algo = load_data_brut(file)
-            algo.df = indiv_init(algo, pop)
+            algo = load_data_brut(File)
+            # algo.df = indiv_init(algo, pop)
             session_state['algo'] = algo          
-    
-    
+    st.download_button(label='📥 download input data template',
+                            data= export_excel(algo),
+                            file_name= 'input.xlsx') 
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
     s = pd.Series(d).rename('Val').astype(str)
@@ -74,11 +77,7 @@ if st.sidebar.checkbox("Show Conf files :"):
     
 if menu == 'Input':
     st.subheader('INPUT')    
-    
-    st.download_button(label='📥 download input data template',
-                                data= export_excel(algo),
-                                file_name= 'input.xlsx')
-    
+        
     Col1 = ['a','b','c']
     Format = dict(zip(Col1,["{:.2e}"]))
     Format.update(dict(zip(['Masse','Cout'],["{:.0f}",  "{:,.2f}"])))
@@ -104,33 +103,31 @@ if menu == 'Input':
     c2.table(dfslot)  
       
 if menu == 'Algo': 
-    with st.expander("Slots", True):    
+    # with st.expander("limite pression par slot pompe", True):
+
+    
+    with st.expander("Capteurs", True):    
             
         Clist = algo.Clist     
         Nclist = list(range(len(Clist)))
         Ctype = algo.DataCategorie['Nozzle']['Unique']        
 
-        SplitText = 'si no group = Deactivate'
-        c1 ,c2 ,c3 ,c4, c5 = st.columns(5)
-        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 4))    
-        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 0))  
-        PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
-        Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
-        BusActif  = c5.checkbox(label = 'Bus')
-        col = st.columns(len(Clist))
+        LenStCol = 5 if len(Clist) > 5 else len(Clist)
+        col = st.columns(LenStCol)
         Nozzles = []
         Nozzlelimits = []
         d = collections.defaultdict(list)
-        
         for i in range(len(Clist)):            
             c = Clist[i]
-            Nozzle =  col[i].selectbox(str(c),Ctype, index = algo.Nature0[i])            
+            idx = i%5
+            stCol = col[idx]
+            Nozzle =  stCol.selectbox('C' + str(c),Ctype, index = algo.Nature0[i])            
             Nozzles.append(Nozzle)
-            # Group0 = algo.Group0
-            Gr = col[i].selectbox(str(c),Nclist, index = algo.Group0[i], label_visibility  = "hidden") 
+            Gr = stCol.selectbox(str(c),Nclist, index = algo.Group0[i], label_visibility  = "collapsed") 
             d[Gr].append(i)  
-            Nozzlelimit = col[i].number_input(str(c),value  = algo.Limit0[i],step =0.1, label_visibility  = "hidden") 
-            Nozzlelimits.append(Nozzlelimit)             
+            Nozzlelimit = stCol.number_input(str(c),value  = algo.Limit0[i],step =0.1, label_visibility  = "collapsed") 
+            Nozzlelimits.append(Nozzlelimit)          
+        
         # creation DictGroup , les group a 1 elem ==> gr 0
         d = dict(sorted(d.items()))    
         # d2 = collections.defaultdict(list)  
@@ -143,37 +140,49 @@ if menu == 'Algo':
             else : 
                 # d2[0].append(val[0]) 
                 GroupDict[val[0]] = 0
-        # d2[0] = sorted(d2[0])     
-        # submitted = st.form_submit_button("Submit & Reset")      
+        # d2[0] = sorted(d2[0])      
         GroupDict = dict(sorted(GroupDict.items())) 
         GroupDict = np.array(list(GroupDict.values()))
-        # if submitted:
-            
-        # print('submitted Slots') 
-
         # algo = load_data_brut(file)
         # algo.GroupDict = dict(sorted(d2.items())) 
         algo.GroupDict = GroupDict
         algo.Group = ~(GroupDict == 0).all()
-        algo.PompeB = PompeB & (not algo.Group)
-        if not algo.Group : Split = 'Deactivate'
-        algo.Split  = Split
-        algo.BusActif = BusActif & (not algo.Group) & (not algo.PompeB)
-
+        
         algo.Nozzles = Nozzles
         Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
         algo.Nvals = dict(zip(Clist, Nvals))
+        algo.Nozzlelimits = np.array(Nozzlelimits)
         
+        
+    with st.expander("Pompe limite & options", True):               
+        SplitText = 'si no group = Deactivate'
+        c1 ,c2 ,c3 ,c4, c5 = st.columns(5)
+        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 4))    
+        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 0))  
+        PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
+        Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
+        BusActif  = c5.checkbox(label = 'Bus')      
+        
+        algo.PompeB = PompeB & (not algo.Group)
+        if not algo.Group : Split = 'Deactivate'
+        algo.Split  = Split
+        algo.BusActif = BusActif & (not algo.Group) & (not algo.PompeB)        
         algo.Npa = Npa
         algo.Npc = Npc
         algo.Pmax = Npa + Npc
         algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
-        algo.Nozzlelimits = np.array(Nozzlelimits)
-        # algo.df = indiv_init(algo, pop)
-        # session_state['algo'] = algo
+        
+        ListPlimSlot = algo.ListPlimSlot
+        stCol = st.columns(len(ListPlimSlot))
+        New_ListPlimSlot = []
+        for i in range(len(ListPlimSlot)):
+            v = stCol[i].number_input(label = 'P{}'.format(i), min_value=0, value = ListPlimSlot[i], key = 'ListPlimSlot' + str(i))
+            New_ListPlimSlot.append(v)   
+        algo.ListPlimSlot = New_ListPlimSlot    
         
      
-    with st.expander("Params", True):
+     
+    with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
         iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 1000,step = 1)
@@ -185,7 +194,7 @@ if menu == 'Algo':
         
         txt = "Maximum de pompe disponible"
         options = list(range(1,len(algo.Comb['E']) +1))
-        session_state['algo'] = algo
+        
         
         ListFitness = ['dist','Masse','Cout']
         c = st.columns(3)
@@ -197,15 +206,17 @@ if menu == 'Algo':
             ListRes.append(res)
         algo.fitnessCompo = np.array(ListRes)
                     
-        txt = 'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
-        default =  'E1-C0,E1-C1,E1-C2,E1-C3,P1-E1'
-        default =  'E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3'
-        NameIndiv = st.text_input('E1-C0,E1-C1,E1-C2,E1-C3,P1-E1', default,help = txt)
+        default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
+        NameIndiv = st.text_input('reverse name_txt to indiv', default,help = default)
         NameIndiv = NameIndiv.replace(" ",'').split(';')
-            
+        
+    session_state['algo'] = algo        
     st.write('Group = ',algo.Group, ', Pompe_B = ',algo.PompeB , ', Split = ', algo.Split, ', BUS = ', algo.BusActif)   
-    c1,c2,c3,c4, c5, c6  = st.columns(6)          
-    if c1.button('RESET'):
+    c1,c2,c3,c4 = st.columns(4) 
+    
+    KeepResults =  c1.checkbox('Keep results') 
+            
+    if c2.button('RESET'):
         print('Params : RESET')              
         if (NameIndiv != ['']):
             L = []
@@ -214,20 +225,21 @@ if menu == 'Algo':
                     indiv = Indiv_reverse(Name,algo)             
                     L.append(indiv)
             df = pd.DataFrame(L)
-            df = df.drop_duplicates(subset='Name_txt')
             df = df.reset_index(drop = True)
-            algo.df = df
-            session_state['algo'] = algo 
         else : 
-            algo.df = indiv_init(algo, algo.pop)
-            session_state['algo'] = algo 
+            df = indiv_init(algo, algo.pop)
+        if KeepResults:
+            algo.df = pd.concat([df,algo.df]) 
+        else :
+            algo.df = df.drop_duplicates(subset='Name_txt')
+        session_state['algo'] = algo
                         
-    if c2.button('RUN'):
+    if c4.button('RUN'):
         print("Params : RUN")   
-        latest_iteration = st.empty()                 
+        # latest_iteration = st.empty()                 
         my_bar = st.empty()     
         for i in range(iterations):
-            latest_iteration.text(f'{iterations - i} iterations left')
+            # latest_iteration.text(f'{iterations - i} iterations left')
             my_bar.progress((i+1)/iterations)
             algo.epoch +=1
             df0 = algo.df
@@ -260,33 +272,58 @@ if menu == 'Algo':
             dfx = pd.DataFrame(L)
             algo.df = pd.concat([df0, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
             session_state['algo'] = algo 
-    
-    algo.Plot = c3.checkbox('Show  figure', value = False, help = "desactiver cette option ameliore les performances")
-    if c4.checkbox('Hide Algo Columns', value = True, help = str(ColAlgo))       : Col_drop += ColAlgo
-    if c5.checkbox('Hide System Columns', value = True, help = str(ColSysteme))  : Col_drop += ColSysteme
-    if c6.checkbox('Hide Results Columns', value = True, help = str(ColResults)) : Col_drop += ColResults        
+          
+    if c3.button('recalculation', help = 'Pompe B , Bus , debit / pression , masse cout , fitness Alive'):
+        indivs = []
+        for indiv in algo.indivs :
+            indiv = Gen_Objectif(algo, indiv)
+            indivs.append(indiv)  
+        algo.indivs = indivs
+        df = pd.DataFrame(indivs) 
+        df = df.reset_index(drop = True)
+        algo.df = df.drop_duplicates(subset='Name_txt')
+        session_state['algo'] = algo   
     df1 = algo.df.copy()
-    # print(df1)
+ 
+    Col_drop = []
+    c1,c2,c3,c4, c5, c6  = st.columns(6)   
+    algo.Plot = c1.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
+    if not c2.checkbox('Algo'   , value = False, help = str(ColAlgo)) : Col_drop += ColAlgo
+    if not c3.checkbox('System' , value = False, help = str(ColSysteme)) : Col_drop += ColSysteme
+    if not c4.checkbox('Results', value = False, help = str(ColResults)) : Col_drop += ColResults 
+    if not c5.checkbox('BUS'    , value = False, help = str(ColBus)) : Col_drop += ColBus       
+    if not c6.checkbox('Pompe'  , value = False, help = str(ColPompe)) : Col_drop += ColPompe  
+    
     if len(df1)>0 :
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
         dfline = algo.dfline    
-
-        st.write('Pattern : ',str(algo.Comb) ,' ---------- indivs Total : ',
-                str(algo.Nrepro), ' ---- indivs  unique: ' , str(df1.shape[0]),
-                '-params :',algo.pop,algo.epoch,str(algo.fitnessCompo*100), algo.crossover, algo.mutation)
-            
+        
+        DictParams = dict(
+            Pattern = algo.Comb,
+            indivs_total = algo.Nrepro,
+            indivs_unique = df1.shape[0],
+            # pop_init = algo.pop,
+            epoch = algo.epoch,
+            # fitnessCompo = algo.fitnessCompo*100,
+            # crossover = algo.crossover,
+            # mutation = algo.mutation,            
+        )
+        st.write(str(DictParams))
+        # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
+        
+        col1 = df1.columns[~df1.columns.isin(ColBase)]
+        df1 = df1[ColBase + df1.columns[~df1.columns.isin(ColBase)].tolist()]
+        dfx = df1.drop(columns= Col_drop)
+        for col in dfx.columns:
+            if col not in ColDfVal :
+                dfx[col]= dfx[col].astype(str)
+            else : 
+                if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)    
+                
         with st.expander("Dataframe", True):
-            # st._legacy_dataframe(df1.drop(columns= Col_drop).astype(str), height  = 800)
-            dfx = df1.drop(columns= Col_drop)
-            for col in dfx.columns:
-                if col not in ColDfVal : 
-                    dfx[col]= dfx[col].astype(str)
-                else : 
-                    if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)
-            st.dataframe(dfx, use_container_width  =True)
-                    
-        with st.expander("Plot", False): 
+            st.dataframe(dfx, use_container_width  =True)                    
+        with st.expander("Figures", True): 
             pass
             if algo.Plot: 
                 c1 , c2 = st.columns(2)
@@ -310,7 +347,7 @@ if menu == 'Algo':
                     for n in range(3):
                         SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
                     SelectLine = row.Name
-                    if algo.BusActif : SelectLine = row.BusName
+                    if row.Option == 'Bus' :   SelectLine = row.BusName
 
                     # fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
                     col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    

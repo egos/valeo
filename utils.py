@@ -27,20 +27,21 @@ def export_excel(algo):
     writer = pd.ExcelWriter(output, engine='xlsxwriter')   
     confs.to_excel(writer, sheet_name='confs')  
     dfmap.to_excel(writer, sheet_name='map') 
-    dfline.to_excel(writer, sheet_name='lines') 
+    dfline.drop(columns = 'duriteVal').to_excel(writer, sheet_name='lines') 
     dfcapteur.to_excel(writer, sheet_name='slot') 
 
     writer.save()
     processed_data = output.getvalue()
     return processed_data
 
-def load_data_brut(file, select = None):
+def load_data_brut(File , select = None):
     print('Init algo namespace')
-    uploaded_file = file['uploaded_file']
-    SheetMapName  = file ['SheetMapName']
+    uploaded_file = File['uploaded_file']
+    SheetMapName  = File ['SheetMapName']
+    DistFactor = File['DistFactor']
     uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
     # print('algo', uploaded_file)
-    DistFactor = 1
+    # DistFactor = 1
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
     DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap, DistFactor)
@@ -110,11 +111,15 @@ def load_data_brut(file, select = None):
     # Ctype = algo.DataCategorie['Nozzle']['Unique']  
     Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
     Limit0 = dfc.limit.values
+    # PompeMaxPerSlot = ['P{}'.format(p) for p in Comb['P']]
+    Len = len(Comb['P'])
+    ListPlimSlot = [Len] * Len
 
     Nozzlelimits = Limit0
     algo = dict(
         SheetMapName = SheetMapName,
         uploaded_file = uploaded_file,
+        DistFactor = DistFactor,
         dfmap = dfmap,
         Group = Group,
         GroupDict = GroupDict,
@@ -159,6 +164,7 @@ def load_data_brut(file, select = None):
         Nature0 = Nature0, 
         Limit0 = Limit0,
         dfcapteur = dfc,
+        ListPlimSlot = ListPlimSlot,
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -236,28 +242,10 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     Pconnect = dict(sorted(d.items()))   
     Plist = sorted(Pconnect)
     PtypeCo = dict(sorted(d2.items()))     
-    
+    Pcount  = len(Plist) 
+    PtypeCo = PtypeCo
     # Pompe 2 on change 'Pa' en Pb si pas de group et PompeB True (les vals de Pb sont divisé par 2)
-    PompeCountFinal = []
-    if algo.PompeB :         
-        for slot , ptList in PtypeCo.items():
-            # print(slot , ptList)
-            idx = []
-            for i, pt in enumerate(ptList): 
-                if pt =='Pa' :
-                    idx.append(i)
-                if len(idx) == 2: 
-                    ptList[idx[0]] = 'Pb'
-                    ptList[idx[1]] = 'Pb'
-                    PompeCountFinal.append('Pb')
-                    idx = []
-            if (pt =='Pa') & (len(idx) == 1):
-                PompeCountFinal.append(pt)
-                    # print('change')
-            PtypeCo[slot] = ptList
-    else : 
-        PompeCountFinal = Ptype   
-    Pcount = len(Plist)        
+          
     
     List_EtoC = [['E{}-C{}'.format(start, end) for end in List] for start , List in Econnect.items()]
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
@@ -284,21 +272,52 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         Ptype0 = Ptype,
         Ptype = Ptype,
         PtypeCo = PtypeCo,
-        PompeCountFinal = PompeCountFinal,
+        # PompeCountFinal = Ptype,
+        Pompes = PtypeCo,
+        Option = 'Na',
         List_EtoC = List_EtoC,
         List_PtoE = List_PtoE,
         dist_Connect = dist_Connect,
         Name = Name,
         ID = algo.Nindiv,
         Name_txt = Name_txt,
-        Epoch = algo.epoch,      
+        Epoch = algo.epoch, 
+        BusName = [],
+        BusDist= [],
+        duriteVal = dict(zip(Name, [algo.duriteVal[line] for line in Name]))             
     )    
-    
-    # print colonne PompeCountFinal
-    if algo.PompeB & (not algo.Group) :
-        indiv['PompeCountFinal'] = PompeCountFinal
+    indiv = Gen_Objectif(algo, indiv)
+    algo.indivs.append(indiv)
+    algo.Nrepro += 1  
+    algo.Nindiv += 1   
+    # print(indiv['Alive'], False & False)
+    return indiv
 
-    if algo.BusActif : 
+def Gen_Objectif(algo, indiv):
+    # Pompe excepetion Pb & Bus 
+    if algo.PompeB & (not algo.Group) :
+        DictPompesFinal = collections.defaultdict(list)
+    
+        for slot , ptList in PtypeCo.items():
+            # print(slot , ptList)
+            idx = []
+            for i, pt in enumerate(ptList): 
+                if pt =='Pa' :
+                    idx.append(i)
+                if len(idx) == 2: 
+                    ptList[idx[0]] = 'Pb'
+                    ptList[idx[1]] = 'Pb'
+                    DictPompesFinal[slot].append('Pb')
+                    idx = []
+            if (pt =='Pa') & (len(idx) == 1):
+                DictPompesFinal[slot].append(pt)
+            PtypeCo[slot] = ptList        
+        indiv['PtypeCo'] = PtypeCo
+        indiv['Pompes'] = dict(DictPompesFinal)   
+        indiv['Option'] = 'Pb'
+             
+    elif algo.BusActif & (not algo.Group):
+        DictPompesFinal = collections.defaultdict(list) 
         dist_Connect , BusName = Bus_Connection(algo, indiv)
         indiv['dist_Connect'] =  dist_Connect
         indiv['BusName']   = BusName
@@ -308,23 +327,20 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         # partie pompe P rand sur pt dipo et replique sur len(ptype) =  tromper calcul debit
         Ptype = []
         PtypeCo = {}
-        PompeCountFinal = []
         for p , ptList in indiv['PtypeCo'].items():
             pt = np.random.choice(ptList)
             Ptype += [pt] * len(ptList)
             PtypeCo[p] = [pt] * len(ptList)
-            PompeCountFinal.append(pt)
+            DictPompesFinal[p].append(pt)
         indiv['Ptype']   = Ptype
         indiv['PtypeCo'] = PtypeCo
-        indiv['PompeCountFinal'] = PompeCountFinal
-        
-    else : 
-        indiv['duriteVal'] = dict(zip(Name, [algo.duriteVal[line] for line in Name]))
-        indiv['BusName']   = []
-        indiv['BusDist']   = []
-    
-    dist = dfline.loc[dfline.ID.isin(Name), 'dist'].sum()
-    dist = sum([dist_Connect[line] for line in Name])
+        indiv['Pompes'] = dict(DictPompesFinal)  
+        indiv['Option'] = 'Bus'
+    elif algo.Group:
+        indiv['Option'] = 'Gr'
+        if algo.Split : indiv['Option'] = 'Split'
+    dist = algo.dfline.loc[algo.dfline.ID.isin(indiv['Name']), 'dist'].sum()
+    dist = sum([indiv['dist_Connect'][line] for line in indiv['Name']])
     indiv['dist'] = round(dist,2)
            
     # calcul debit ['PressionList','DebitList','Esplit','Debit']
@@ -340,24 +356,24 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     indiv.update(d)
     # print(info)
     
-    # Cond = False
-    # for i, (e,EClist) in enumerate(Econnect.items()):    #     Cond+= np.isin(algo.Group,  EClist).all()
-    # indiv['Vg'] = Cond    
-    # indiv['Vnp'] = False if indiv['Ecount'] > algo.Pmax  else True
     ListFitness = ['dist','Masse','Cout']
     fitness = 0
     for i in range(3):
-        fit = ListFitness[i]
-        fitness+= indiv[fit] * algo.fitnessCompo[i]
+        fitness+= indiv[ListFitness[i]] * algo.fitnessCompo[i]
         
-    indiv['fitness'] = fitness
+    indiv['fitness'] = round(fitness,5)
     indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nozzlelimits).any() else True 
-    # indiv['Alive'] = indiv['Vg']*indiv['Vp']*indiv['Vnp'] 
-         
-    algo.indivs.append(indiv)
-    algo.Nrepro += 1  
-    algo.Nindiv += 1   
-    return indiv
+    # print(indiv['Alive'])
+    indiv['parent'] = []
+    ListPlimSlot = algo.ListPlimSlot
+    cond = True
+    for p, v in indiv['Pompes'].items():
+        Cible =  ListPlimSlot[p] 
+        if len(v) > Cible : cond = cond & False 
+        # print(p, v , len(v), Cible, cond)
+    indiv['Alive'] = indiv['Alive'] & cond   
+    return indiv 
+
 
 def Bus_Connection(algo, indiv):
     New_dist_Connect = copy.deepcopy(indiv['dist_Connect'])
@@ -440,7 +456,8 @@ def calcul_Masse_cout(indiv, algo):
     for Categorie in ['Pompe', 'Tuyau','EV']:
         v = algo.DataCategorie[Categorie]['Values']
         if Categorie == 'Pompe' : 
-            Ptype = indiv['PompeCountFinal']
+            a = indiv['Pompes'].values()
+            Ptype =  list(itertools.chain.from_iterable(indiv['Pompes'].values()))
             masse = 0
             cout = 0
             for pt in Ptype: 
@@ -456,7 +473,7 @@ def calcul_Masse_cout(indiv, algo):
             # distPerLine  = np.array([algo.dist[line] for line in indiv['Name']])
             distPerLine  = np.array(list(indiv['dist_Connect'].values()))
             Name = indiv['Name']
-            if algo.BusActif: 
+            if indiv['Option'] == 'Bus' : 
                 distPerLine  = np.array(list(indiv['BusDist'].values()))
                 Name = indiv['BusName']
             MassePerLine = np.array([v[algo.duriteType[line]]['Masse'] for line in Name])
@@ -480,37 +497,6 @@ def calcul_Masse_cout(indiv, algo):
     Cout = round(sum(dcout.values()),2)
     Cout = int(Cout)
     # print(info)
-    return  info, { 'Masse' : Masse, 'Cout' : Cout}
-
-def calcul_Masse_cout_S(indiv, algo): 
-    dmasse = {}
-    dcout = {}
-    confs = algo.confs
-
-    masse, cout = confs[confs.Name == algo.Pompe][['Masse','Cout']].values[0]
-    masse, cout 
-    dmasse['Pmasse'] = indiv['Ecount']*masse
-    dcout['Pcout']   = indiv['Ecount']*cout
-
-    masse, cout = confs[confs.Name == algo.Tuyau][['Masse','Cout']].values[0]
-    masse, cout
-    dmasse['Tmasse'] = indiv['dist']*masse
-    dcout['Tcout']   = indiv['dist']*cout
-
-
-    Ccount = len(algo.Comb['C'])
-    masse, cout = confs[confs.Name == algo.EV][['Masse','Cout']].values[0]
-    masse, cout
-    dmasse['Emasse'] = Ccount*masse
-    dcout['Ecout']   = Ccount*cout
-
-    dmasse['Reservoir'] = 600
-    dcout['Reservoir']  = 30    
-    
-    info = [dmasse, dcout]
-    Masse = round(sum(dmasse.values()),2)
-    Cout = round(sum(dcout.values()),2)
-    
     return  info, { 'Masse' : Masse, 'Cout' : Cout}
 
 def AG_CrossOver(dfx, algo):    
@@ -710,7 +696,7 @@ def new_import(dfmap, DistFactor):
     
     A0 = dfmap.values
     Size = max(A0.shape)
-    DistFactor = Size * DistFactor
+    # DistFactor = Size / DistFactor
     
     Comb = collections.defaultdict(list)
     DictPos = {}    
@@ -752,7 +738,7 @@ def new_import(dfmap, DistFactor):
             goal = DictPos[end]        
             path = Path2(A1.copy() ,start,  goal)
             path = np.array(path)       
-            dist = (np.abs(np.diff(path.T)).sum() / DistFactor).round(2)
+            dist = (np.abs(np.diff(path.T)).sum() * DistFactor).round(2)
             
             if end[0] == 'C' : ID = begin + '-' + end
             else : ID = end + '-' + begin
@@ -773,7 +759,7 @@ def new_import(dfmap, DistFactor):
         goal = DictPos[end]        
         path = Path2(A1.copy() ,start,  goal)
         path = np.array(path)       
-        dist = (np.abs(np.diff(path.T)).sum() / DistFactor).round(2)
+        dist = (np.abs(np.diff(path.T)).sum() * DistFactor).round(2)
 
         # if end[0] == 'C' : ID = begin + '-' + end
         # elif begin[0] == 'P' : ID = begin + '-' + end    
@@ -781,8 +767,7 @@ def new_import(dfmap, DistFactor):
         ID = end + '-' + begin
         DictEtoE[ID] = {'path' : path, 'dist' : dist}
 
-    DictLine.update(DictEtoE)
-    
+    DictLine.update(DictEtoE)   
     
     
     return DictLine, DictPos, A0,dict(Comb), ListWall

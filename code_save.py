@@ -143,7 +143,19 @@ def plot_(algo,dflineSelect, dfsSelect, name):
     #         algo.df = indiv_init(algo, pop)
     #         session_state['algo'] = algo
     
-    
+'''col select'''
+   # ColdropTest = ColAlgo + ColSysteme + ColResults + ColBus
+    # dfCol = df1.columns
+    # print([c for c in dfCol if c not in ColdropTest])
+    # ColBase ['Ptype0', 'Ptype', 'PtypeCo', 'PompeCountFinal', 'ID', 'Epoch', 'dist', 'Esplit', 'Debit', 'Masse', 'Cout', 'fitness', 'Alive']
+    # print(df1)
+    # ColSelect = []
+    # ColSt = st.columns(5)
+    # ColCatList = [ColAlgo, ColSysteme, ColResults,ColBus]
+    # ColCatName= ['ColAlgo', 'ColSysteme', 'ColResults','ColBus']
+    # for i in range(len(ColCatList)):
+    #     ColSelect += ColSt[i].multiselect(label = ColCatName[i],options = ColCatList[i],default=ColCatList[i], help = str(ColCatName[i]))
+    # ColSelect = st.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns')    
     
     
 def Calcul_Debit(algo ,indiv, split):
