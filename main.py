@@ -40,7 +40,7 @@ menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 if 'algo' not in session_state: 
     print(' ')
     print('BEGIN')
-    File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : 1.0}
+    File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : 0.1}
     
     algo = load_data_brut(File)
     # algo.df = indiv_init(algo, pop)
@@ -56,7 +56,7 @@ with st.expander('input & pathfinding : 🖱️ press submit for change take eff
         
         uploaded_file = c1.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
         SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
-        DistFactor = c2.number_input(label = 'DistFactor ==> metre', value = 1.0)
+        DistFactor = c2.number_input(label = 'DistFactor ==> metre', value = 0.1)
         File = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file, 'DistFactor' : DistFactor}
         submitted = st.form_submit_button("Submit & Reset")
         if submitted: 
