@@ -295,6 +295,8 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
 
 def Gen_Objectif(algo, indiv):
     # Pompe excepetion Pb & Bus 
+    Name = indiv['Name']
+    PtypeCo = indiv['PtypeCo']
     if algo.PompeB & (not algo.Group) :
         DictPompesFinal = collections.defaultdict(list)
     
