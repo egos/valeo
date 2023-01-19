@@ -24,16 +24,16 @@ keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
           "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
           'duriteType','duriteVal']
 
-ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
+ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal','Name_txt']
 ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 ColResults = ['PressionList','DebitList','dist_Connect']
 ColBus     = ['BusName','BusDist']
 # col pour astype int
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
-ColPompe = ['Ptype0', 'Ptype', 'PtypeCo']
-ColBase =  ['ID', 'Option', 'Pompes', 'Esplit', 'Debit','dist', 'Masse', 'Cout',
-            'fitness','Epoch', 'Alive','parent','Name_txt']
+ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo','PompeCount', 'PompeSum', 'Esplit','EvCount', 'EvSum']
+ColBase =  ['ID', 'Option','PompeCount','EvCount', 'Debit','dist', 'Masse', 'Cout',
+            'fitness','Epoch', 'Alive','parent']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 
@@ -41,9 +41,7 @@ if 'algo' not in session_state:
     print(' ')
     print('BEGIN')
     File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : 0.1}
-    
     algo = load_data_brut(File)
-    # algo.df = indiv_init(algo, pop)
     session_state['algo'] = algo
 else : 
     print('reload')
@@ -63,10 +61,13 @@ with st.expander('input & pathfinding : 🖱️ press submit for change take eff
             print('submitted Map')
             # session_state.clear()
             algo = load_data_brut(File)
-            # algo.df = indiv_init(algo, pop)
-            session_state['algo'] = algo          
-    st.download_button(label='📥 download input data template',
-                            data= export_excel(algo),
+            session_state['algo'] = algo       
+    c1 , c2 = st.columns(2)   
+    c1.download_button(label='📥 download input data template',
+                            data= export_excel(algo, False),
+                            file_name= 'input.xlsx') 
+    c2.download_button(label='📥 download input + pathfinding',
+                            data= export_excel(algo, True),
                             file_name= 'input.xlsx') 
 if st.sidebar.checkbox("Show Conf files :"):        
     d = {k : v for k,v in vars(algo).items() if k not in keydrop}
@@ -103,8 +104,6 @@ if menu == 'Input':
     c2.table(dfslot)  
       
 if menu == 'Algo': 
-    # with st.expander("limite pression par slot pompe", True):
-
     
     with st.expander("Capteurs", True):    
             
@@ -151,22 +150,21 @@ if menu == 'Algo':
         algo.Nozzles = Nozzles
         Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
         algo.Nvals = dict(zip(Clist, Nvals))
-        algo.Nozzlelimits = np.array(Nozzlelimits)
-        
+        algo.Nozzlelimits = np.array(Nozzlelimits)   
         
     with st.expander("Pompe limite & options", True):               
         SplitText = 'si no group = Deactivate'
         c1 ,c2 ,c3 ,c4, c5 = st.columns(5)
-        Npa = int(c1.number_input(label= 'Npa',key='Npa' , value= 4))    
-        Npc = int(c2.number_input(label= 'Npc',key='Npc' , value= 0))  
+        Npa = int(c1.number_input(label= 'Npa (marche pas avec recalculation)',key='Npa' , value= 4))    
+        Npc = int(c2.number_input(label= 'Npc (marche pas avec recalculation)',key='Npc' , value= 4))  
         PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
         Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
         BusActif  = c5.checkbox(label = 'Bus')      
         
-        algo.PompeB = PompeB & (not algo.Group)
+        algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
         if not algo.Group : Split = 'Deactivate'
         algo.Split  = Split
-        algo.BusActif = BusActif & (not algo.Group) & (not algo.PompeB)        
+        algo.BusActif = BusActif & (not algo.Group) & (not PompeB)        
         algo.Npa = Npa
         algo.Npc = Npc
         algo.Pmax = Npa + Npc
@@ -179,9 +177,7 @@ if menu == 'Algo':
             v = stCol[i].number_input(label = 'P{}'.format(i), min_value=0, value = ListPlimSlot[i], key = 'ListPlimSlot' + str(i))
             New_ListPlimSlot.append(v)   
         algo.ListPlimSlot = New_ListPlimSlot    
-        
-     
-     
+         
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
@@ -275,13 +271,15 @@ if menu == 'Algo':
           
     if c3.button('recalculation', help = 'Pompe B , Bus , debit / pression , masse cout , fitness Alive'):
         indivs = []
-        for indiv in algo.indivs :
+        for idx , row  in algo.df.iterrows() :
+            indiv = row.to_dict()
             indiv = Gen_Objectif(algo, indiv)
             indivs.append(indiv)  
         algo.indivs = indivs
         df = pd.DataFrame(indivs) 
         df = df.reset_index(drop = True)
-        algo.df = df.drop_duplicates(subset='Name_txt')
+        algo.df = df
+        # algo.df = df.drop_duplicates(subset='Name_txt')
         session_state['algo'] = algo   
     df1 = algo.df.copy()
  
@@ -293,7 +291,7 @@ if menu == 'Algo':
     if not c4.checkbox('Results', value = False, help = str(ColResults)) : Col_drop += ColResults 
     if not c5.checkbox('BUS'    , value = False, help = str(ColBus)) : Col_drop += ColBus       
     if not c6.checkbox('Pompe'  , value = False, help = str(ColPompe)) : Col_drop += ColPompe  
-    
+    # print(len(algo.indivs))
     if len(df1)>0 :
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
@@ -303,11 +301,7 @@ if menu == 'Algo':
             Pattern = algo.Comb,
             indivs_total = algo.Nrepro,
             indivs_unique = df1.shape[0],
-            # pop_init = algo.pop,
-            epoch = algo.epoch,
-            # fitnessCompo = algo.fitnessCompo*100,
-            # crossover = algo.crossover,
-            # mutation = algo.mutation,            
+            epoch = algo.epoch,         
         )
         st.write(str(DictParams))
         # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
@@ -318,8 +312,8 @@ if menu == 'Algo':
         for col in dfx.columns:
             if col not in ColDfVal :
                 dfx[col]= dfx[col].astype(str)
-            else : 
-                if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)    
+            if col == 'dist' : dfx[col]= dfx[col].astype(int)  
+                # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)    
                 
         with st.expander("Dataframe", True):
             st.dataframe(dfx, use_container_width  =True)                    
