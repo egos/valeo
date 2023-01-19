@@ -31,7 +31,7 @@ ColBus     = ['BusName','BusDist']
 # col pour astype int
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
-ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo','PompeCount', 'PompeSum', 'Esplit','EvCount', 'EvSum']
+ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum', 'Esplit', 'EvSum']
 ColBase =  ['ID', 'Option','PompeCount','EvCount', 'Debit','dist', 'Masse', 'Cout',
             'fitness','Epoch', 'Alive','parent']
 
@@ -197,12 +197,13 @@ if menu == 'Algo':
         ListRes = []
         for i in range(3): 
             fit = ListFitness[i]
-            res  = c[i].number_input(label = fit,value = int(algo.fitnessCompo[i]*100), min_value = 0, max_value  = 100,step = 10, help ="")
+            res  = c[i].number_input(label = fit + '%',value = int(algo.fitnessCompo[i]*100), min_value = 0, max_value  = 100,step = 10, help ="")
             res /= 100
             ListRes.append(res)
         algo.fitnessCompo = np.array(ListRes)
                     
         default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
+        default = ''
         NameIndiv = st.text_input('reverse name_txt to indiv', default,help = default)
         NameIndiv = NameIndiv.replace(" ",'').split(';')
         
