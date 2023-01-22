@@ -24,7 +24,7 @@ keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
           "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
           'duriteType','duriteVal']
 
-ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal','Name_txt']
+ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
 ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
 ColResults = ['PressionList','DebitList','dist_Connect']
 ColBus     = ['BusName','BusDist']
@@ -33,7 +33,7 @@ ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
 ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum', 'Esplit', 'EvSum']
 ColBase =  ['ID', 'Option','PompeCount','EvCount', 'Debit','dist', 'Masse', 'Cout',
-            'fitness','Epoch', 'Alive','parent']
+            'fitness','Epoch', 'Alive','parent','Name_txt']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 

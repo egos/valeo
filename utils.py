@@ -20,6 +20,7 @@ def export_excel(algo, Type):
     confs = algo.confs
     dfmap = algo.dfmap
     dfline = algo.dfline.drop(columns= 'path')
+    # dfline['Select'] = 'o'
     dfcapteur = algo.dfcapteur
     
     output = BytesIO()
@@ -60,6 +61,8 @@ def load_data_brut(File , select = None):
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
         dfline['duriteType'] = lines_add['duriteType'].copy()
         dfline['dist'] = lines_add['dist'].copy()
+        # dfline = dfline[lines_add.Select=='o']
+        # dfline = dfline[]
     # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
     DictLine = dfline.set_index('ID').to_dict(orient = 'index')   
   
@@ -211,8 +214,9 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
             
             NewEtoP = np.random.choice(D['P'],Ecount - row.Ecount)
             EtoP = np.append(row.EtoP, NewEtoP)
-            
-            for pt in row.Ptype: PompesSelect.remove(pt)  
+            # print(row.ID, row.Name ,Ecount , row.Ecount, row.Ptype , PompesSelect)
+            if not algo.BusActif : 
+                for pt in row.Ptype:  PompesSelect.remove(pt)   
             NewPtype = np.random.choice(PompesSelect,Ecount - row.Ecount, replace=False)
             Ptype = np.append(row.Ptype, NewPtype)
             
@@ -246,9 +250,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     List_PtoE = [['P{}-E{}'.format(start, end) for end in List] for start , List in Pconnect.items()]
         
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
-    Name_txt = ','.join(Name)
-    
-          
+    Name_txt = ','.join(Name)   
     
     indiv = dict(
         Clist = Clist,
@@ -335,6 +337,7 @@ def Gen_Objectif(algo, indiv):
         # PtypeCo = {}
         for p , ptList in PtypeCo.items():
             pt = np.random.choice(ptList)
+            # pt = p
             Ptype += [pt] * len(ptList)
             PtypeCo[p] = [pt] * len(ptList)
             DictPompesFinal[p].append(pt)
