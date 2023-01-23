@@ -618,8 +618,8 @@ def debit(algo,indiv,debitinput, grouped = True, split = True):
     
     Pt = np.array(Qt**2 / Z**2)
     # print(Pt)
-    if (PompeType == 'Pc') &  (Pt >=  algo.Nozzlelimits[ClistG]).all():
-        Pt = algo.Nozzlelimits[ClistG]*1.1 #* Pt/Pt
+    # if (PompeType == 'Pc') &  (Pt >=  algo.Nozzlelimits[ClistG]).all():
+    #     Pt = algo.Nozzlelimits[ClistG]*1.1 #* Pt/Pt
 
     a0 = p[0] * (Qt**2) + p[1] * Qt + p[2] - Pt
     Qi = (Pt / A)**0.5
