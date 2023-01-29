@@ -4,6 +4,7 @@ import numpy as np
 import networkx as nx
 import itertools 
 import math
+import io
 from io import BytesIO
 from math import factorial as f
 from datetime import timedelta
@@ -15,6 +16,50 @@ import copy
 from types import SimpleNamespace
 import matplotlib.patches as mpatch
 from collections import Counter
+import xlsxwriter
+
+def export_excel_test(algo, ListResultsExport):
+    Col = 0
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet()
+    # plt.gcf().set_size_inches(4, 4)
+    for i in range(len(ListResultsExport)) : 
+        row = ListResultsExport[i]['row']
+        fig = ListResultsExport[i]['fig']
+    # for idx , row in df1.iterrows(): 
+    # row = df1.loc[0]
+        # ElemsList = ['Clist','Elist','Plist']
+        # Elems = ['C','E','P']
+        # SelectSlot = []
+        # List_EtoC = row.List_EtoC
+        # List_PtoE = row.List_PtoE
+        # for n in range(3):
+        #     SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
+        # SelectLine = row.Name
+        # if row.Option == 'Bus' :   SelectLine = row.BusName
+                    
+        # fig = new_plot(algo, SelectLine, SelectSlot)
+        # Width , Heigth  = fig.get_size_inches()
+        # print(Width , Heigth , fig.dpi)
+        # # print(fig.get_size_inches()*fig.dpi)
+        # plt.gcf().set_size_inches(Width/2, Heigth/2)
+        
+        # worksheet.write(0,0, 'Hello')
+        # print(row)
+        # plt.gcf().set_size_inches(4, 4)
+        for i in range(len(row)):
+            worksheet.write(i,0+Col*2, row.index[i])
+            worksheet.write(i,1+Col*2, str(row.values[i]))
+        imgdata = BytesIO()
+        # fig.savefig(imgdata, format='png',bbox_inches='tight', dpi=100)
+        fig.savefig(imgdata, format='png',bbox_inches='tight')
+        worksheet.insert_image(i,0+Col*2, '', {'image_data': imgdata})
+        Col+=1
+    workbook.close()
+    return output.getvalue() 
+
+    
 
 def export_excel(algo, Type):
     confs = algo.confs

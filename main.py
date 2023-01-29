@@ -204,7 +204,7 @@ if menu == 'Algo':
                     
         default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
         default = ''
-        NameIndiv = st.text_input('reverse name_txt to indiv', default,help = default)
+        NameIndiv = st.text_input('reverse name_txt to indiv', default,help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
         NameIndiv = NameIndiv.replace(" ",'').split(';')
         
     session_state['algo'] = algo        
@@ -297,13 +297,12 @@ if menu == 'Algo':
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
         dfline = algo.dfline    
-        
+
         DictParams = dict(
             Pattern = algo.Comb,
             indivs_total = algo.Nrepro,
             indivs_unique = df1.shape[0],
-            epoch = algo.epoch,         
-        )
+            epoch = algo.epoch,        )
         st.write(str(DictParams))
         # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
         
@@ -315,23 +314,26 @@ if menu == 'Algo':
                 dfx[col]= dfx[col].astype(str)
             if col == 'dist' : dfx[col]= dfx[col].astype(int)  
                 # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)    
-                
+      
         with st.expander("Dataframe", True):
             st.dataframe(dfx, use_container_width  =True)                    
         with st.expander("Figures", True): 
+            Empty = st.empty()
             pass
             if algo.Plot: 
+                ListResultsExport = []
                 c1 , c2 = st.columns(2)
                 MinCol = 3 if  len(df1) >= 3 else len(df1)
                 Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1)
                 # Ncol = 3 if len(df1) >=3 else len(df1)
                 Ncolmin  = 4 if Ncol < 4 else Ncol
-                col = st.columns(Ncolmin)
+                col = st.columns(Ncolmin)               
                         
                 for i in range(Ncol):   
                     c1, c2 = st.columns([0.3,0.7])   
                     ListSelectbox = df1.index
                     index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
+                    # ListIndexSelect.append(index)
                     row = df1.loc[index]
                             
                     ElemsList = ['Clist','Elist','Plist']
@@ -348,6 +350,11 @@ if menu == 'Algo':
                     col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
                     fig = new_plot(algo, SelectLine, SelectSlot)
                     col[i].pyplot(fig)
+                    ListResultsExport.append({'row':row.drop(labels= Col_drop), 'fig': fig})
+            # dfp = df1.loc[ListIndexSelect]        
+                Empty.download_button(label ='📥 download results',
+                    data = export_excel_test(algo, ListResultsExport),
+                    file_name= 'results.xlsx')  
 
 # c3.pyplot(fig)
                 
