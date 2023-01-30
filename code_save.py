@@ -156,7 +156,14 @@ def plot_(algo,dflineSelect, dfsSelect, name):
     # for i in range(len(ColCatList)):
     #     ColSelect += ColSt[i].multiselect(label = ColCatName[i],options = ColCatList[i],default=ColCatList[i], help = str(ColCatName[i]))
     # ColSelect = st.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns')    
-    
+
+
+    # if not c2.checkbox('Algo'   , value = False, help = str(ColAlgo)) : Col_drop += ColAlgo
+    # if not c3.checkbox('System' , value = False, help = str(ColSysteme)) : Col_drop += ColSysteme
+    # if not c4.checkbox('Results', value = False, help = str(ColResults)) : Col_drop += ColResults 
+    # if not c5.checkbox('BUS'    , value = False, help = str(ColBus)) : Col_drop += ColBus       
+    # if not c6.checkbox('Pompe'  , value = False, help = str(ColPompe)) : Col_drop += ColPompe  
+    # print(len(algo.indivs))       
     
 def Calcul_Debit(algo ,indiv, split):
     D = algo.Comb  

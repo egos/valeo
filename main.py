@@ -13,6 +13,10 @@ import json
 import collections
 import copy
 from utils import *
+import plotly.express as px
+import time
+import pickle
+from types import SimpleNamespace
 
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
 st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
@@ -26,17 +30,18 @@ keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
 
 ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
 ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-ColResults = ['PressionList','DebitList','dist_Connect']
-ColBus     = ['BusName','BusDist']
+ColResults = ['PressionList','DebitList','dist_Connect','DetailsMasse','DetailsCout']
+ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
 # col pour astype int
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
-ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum', 'Esplit', 'EvSum']
+ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
 ColBase =  ['ID', 'Option','PompeCount','EvCount', 'Debit','dist', 'Masse', 'Cout',
             'fitness','Epoch', 'Alive','parent','Name_txt']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
-
+today = time.strftime("%Y%m%d-%H:%M:%S")
+print(today)
 if 'algo' not in session_state: 
     print(' ')
     print('BEGIN')
@@ -46,6 +51,17 @@ if 'algo' not in session_state:
 else : 
     print('reload')
     algo = session_state['algo']
+
+c1, c2 = st.columns(2)
+uploaded_file = c1.file_uploader('LOAD Save.pickle') 
+if uploaded_file is not None: 
+    if 'load' not in session_state:
+        print(uploaded_file)
+        SaveAlgo = pickle.load(uploaded_file)
+        algo = SimpleNamespace(**SaveAlgo)
+        session_state['algo'] = algo
+        session_state['load'] = True 
+PickleDonwload = c2.empty()
       
 with st.expander('input & pathfinding : 🖱️ press submit for change take effect', True):
 
@@ -120,7 +136,7 @@ if menu == 'Algo':
             c = Clist[i]
             idx = i%5
             stCol = col[idx]
-            Nozzle =  stCol.selectbox('C' + str(c),Ctype, index = algo.Nature0[i])            
+            Nozzle =  stCol.selectbox('C' + str(c),Ctype, index = algo.Nature0[i])        
             Nozzles.append(Nozzle)
             Gr = stCol.selectbox(str(c),Nclist, index = algo.Group0[i], label_visibility  = "collapsed") 
             d[Gr].append(i)  
@@ -155,11 +171,12 @@ if menu == 'Algo':
     with st.expander("Pompe limite & options", True):               
         SplitText = 'si no group = Deactivate'
         c1 ,c2 ,c3 ,c4, c5 = st.columns(5)
-        Npa = int(c1.number_input(label= 'Npa (marche pas avec recalculation)',key='Npa' , value= 4))    
-        Npc = int(c2.number_input(label= 'Npc (marche pas avec recalculation)',key='Npc' , value= 4))  
-        PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False')
-        Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate')
-        BusActif  = c5.checkbox(label = 'Bus')      
+        Npa = int(c1.number_input(label= 'Npa (marche pas avec recalculation)',key='Npa' , value= algo.Npa))    
+        Npc = int(c2.number_input(label= 'Npc (marche pas avec recalculation)',key='Npc' , value= algo.Npc))  
+        PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
+        ListSplitName = ['Deactivate','Auto','Forced']
+        Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate', index = ListSplitName.index(algo.Split))
+        BusActif  = c5.checkbox(label = 'Bus',value = algo.BusActif)      
         
         algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
         if not algo.Group : Split = 'Deactivate'
@@ -180,8 +197,8 @@ if menu == 'Algo':
          
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-        algo.pop   = c1.number_input(label  = 'indiv pop init',value = 10, min_value = 1,  max_value  = 1000,step = 10)
-        iterations = c2.number_input(label  = 'iterations / run',value = 1, min_value = 1,  max_value  = 1000,step = 1)
+        algo.pop   = c1.number_input(label  = 'indiv pop init',value = algo.pop, min_value = 1,  max_value  = 1000,step = 10)
+        algo.iterations = c2.number_input(label  = 'iterations / run',value = algo.iterations, min_value = 1,  max_value  = 1000,step = 1)
         # algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
         txt = "indivs selectionnés avec la meilleur fitness pour crossover => 2 enfants"
         algo.crossover = c3.number_input(label = 'Crossover',value = int(algo.crossover), min_value = 0, max_value  = 100,step = 10, help =txt)
@@ -189,8 +206,7 @@ if menu == 'Algo':
         algo.mutation  = c4.number_input(label = 'Mutation', value = int(algo.mutation), min_value = 0, max_value  = 100,step = 10, help =txt)
         
         txt = "Maximum de pompe disponible"
-        options = list(range(1,len(algo.Comb['E']) +1))
-        
+        options = list(range(1,len(algo.Comb['E']) +1))        
         
         ListFitness = ['dist','Masse','Cout']
         c = st.columns(3)
@@ -209,8 +225,8 @@ if menu == 'Algo':
         
     session_state['algo'] = algo        
     st.write('Group = ',algo.Group, ', Pompe_B = ',algo.PompeB , ', Split = ', algo.Split, ', BUS = ', algo.BusActif)   
-    c1,c2,c3,c4 = st.columns(4) 
-    
+    c0,c1,c2,c3,c4 = st.columns(5) 
+    algo.Plot = c0.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
     KeepResults =  c1.checkbox('Keep results') 
             
     if c2.button('RESET'):
@@ -229,13 +245,20 @@ if menu == 'Algo':
             algo.df = pd.concat([df,algo.df]) 
         else :
             algo.df = df.drop_duplicates(subset='Name_txt')
+        algo.SaveRun = []
         session_state['algo'] = algo
                         
     if c4.button('RUN'):
-        print("Params : RUN")   
+        print("Params : RUN") 
+        algo.SaveRun = [] 
+        d = dict(
+            indivs_total = algo.Nrepro,
+            indivs_unique = algo.df.shape[0],
+            indivs_alive = algo.df.Alive.sum(),)
+        algo.SaveRun.append(d)         
         # latest_iteration = st.empty()                 
         my_bar = st.empty()     
-        for i in range(iterations):
+        for i in range(algo.iterations):
             # latest_iteration.text(f'{iterations - i} iterations left')
             my_bar.progress((i+1)/iterations)
             algo.epoch +=1
@@ -268,6 +291,13 @@ if menu == 'Algo':
         
             dfx = pd.DataFrame(L)
             algo.df = pd.concat([df0, dfx]).drop_duplicates(subset='Name_txt').reset_index(drop = True)
+            
+            d = dict(
+                indivs_total = algo.Nrepro,
+                indivs_unique = algo.df.shape[0],
+                indivs_alive = algo.df.Alive.sum(),)
+            algo.SaveRun.append(d)    
+            
             session_state['algo'] = algo 
           
     if c3.button('recalculation', help = 'Pompe B , Bus , debit / pression , masse cout , fitness Alive'):
@@ -284,15 +314,38 @@ if menu == 'Algo':
         session_state['algo'] = algo   
     df1 = algo.df.copy()
  
-    Col_drop = []
-    c1,c2,c3,c4, c5, c6  = st.columns(6)   
-    algo.Plot = c1.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
-    if not c2.checkbox('Algo'   , value = False, help = str(ColAlgo)) : Col_drop += ColAlgo
-    if not c3.checkbox('System' , value = False, help = str(ColSysteme)) : Col_drop += ColSysteme
-    if not c4.checkbox('Results', value = False, help = str(ColResults)) : Col_drop += ColResults 
-    if not c5.checkbox('BUS'    , value = False, help = str(ColBus)) : Col_drop += ColBus       
-    if not c6.checkbox('Pompe'  , value = False, help = str(ColPompe)) : Col_drop += ColPompe  
-    # print(len(algo.indivs))
+    # Col_drop = []
+    # c1,c2,c3,c4, c5, c6  = st.columns(6)   
+    
+
+    if len(algo.SaveRun)> 1 : 
+        with st.expander("Run Stats", True):
+            c1, c2 = st.columns([0.2,0.8])
+            dfStat = pd.DataFrame(algo.SaveRun)
+            c1.dataframe(dfStat, use_container_width  =True)    
+            fig = px.line(dfStat)
+            fig.update_layout(        
+                            yaxis_title ='count',
+                            xaxis_title ='epoch',
+                            font=dict(size=16,family = "Arial"),
+                            margin=dict(l=10, r=10, t=30, b=10),
+                            )
+            c2.plotly_chart(fig,use_container_width=True) 
+    if len(df1)>0 :           
+        
+        ColCatList = [ColBase, ColAlgo  , ColSysteme, ColResults,ColBus,ColPompe]
+        ColCatName = ['Base','Algo','Systeme','Results','Bus&EV','Pompe']
+        ColCat = dict(zip(ColCatName,ColCatList))
+        # ColCat = pd.DataFrame.from_dict(ColCat, orient='index')
+        # print(df1.columns)
+        
+        with st.expander("ColSelect", False):
+            c1, c2 = st.columns(2)
+            ColSelect = c1.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns') 
+            # c2.write(ColCat.style.format(na_rep = ' '))
+            for k,v in ColCat.items():
+                c2.write('{} : {}'.format(k,v))
+            
     if len(df1)>0 :
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
@@ -302,10 +355,12 @@ if menu == 'Algo':
             Pattern = algo.Comb,
             indivs_total = algo.Nrepro,
             indivs_unique = df1.shape[0],
+            indivs_alive = df1.Alive.sum(),
             epoch = algo.epoch,        )
         st.write(str(DictParams))
+
         # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
-        
+        Col_drop = df1.columns[~df1.columns.isin(ColSelect)].tolist()
         col1 = df1.columns[~df1.columns.isin(ColBase)]
         df1 = df1[ColBase + df1.columns[~df1.columns.isin(ColBase)].tolist()]
         dfx = df1.drop(columns= Col_drop)
@@ -313,18 +368,17 @@ if menu == 'Algo':
             if col not in ColDfVal :
                 dfx[col]= dfx[col].astype(str)
             if col == 'dist' : dfx[col]= dfx[col].astype(int)  
-                # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)    
-      
+                # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)   
         with st.expander("Dataframe", True):
             st.dataframe(dfx, use_container_width  =True)                    
         with st.expander("Figures", True): 
-            Empty = st.empty()
-            pass
+            c1 , c2 = st.columns(2)
+            Empty = c2.empty()
             if algo.Plot: 
                 ListResultsExport = []
-                c1 , c2 = st.columns(2)
+                
                 MinCol = 3 if  len(df1) >= 3 else len(df1)
-                Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1)
+                Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1, label_visibility='collapsed')
                 # Ncol = 3 if len(df1) >=3 else len(df1)
                 Ncolmin  = 4 if Ncol < 4 else Ncol
                 col = st.columns(Ncolmin)               
@@ -332,8 +386,7 @@ if menu == 'Algo':
                 for i in range(Ncol):   
                     c1, c2 = st.columns([0.3,0.7])   
                     ListSelectbox = df1.index
-                    index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i)
-                    # ListIndexSelect.append(index)
+                    index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i, label_visibility='collapsed')
                     row = df1.loc[index]
                             
                     ElemsList = ['Clist','Elist','Plist']
@@ -346,15 +399,20 @@ if menu == 'Algo':
                     SelectLine = row.Name
                     if row.Option == 'Bus' :   SelectLine = row.BusName
 
-                    # fig = plot_(algo,dflineSelect, dfsSelect, str(row.name) + ' : ' + row.Name_txt + ' / '+ str(row.dist))     
                     col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
                     fig = new_plot(algo, SelectLine, SelectSlot)
                     col[i].pyplot(fig)
                     ListResultsExport.append({'row':row.drop(labels= Col_drop), 'fig': fig})
-            # dfp = df1.loc[ListIndexSelect]        
+   
                 Empty.download_button(label ='📥 download results',
                     data = export_excel_test(algo, ListResultsExport),
                     file_name= 'results.xlsx')  
+
+
+PickleDonwload.download_button(
+        label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
+        data=pickle.dumps(vars(algo)),
+        file_name="Save_{}.pickle".format(today)) 
 
 # c3.pyplot(fig)
                 

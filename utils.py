@@ -52,15 +52,13 @@ def export_excel_test(algo, ListResultsExport):
             worksheet.write(i,0+Col*2, row.index[i])
             worksheet.write(i,1+Col*2, str(row.values[i]))
         imgdata = BytesIO()
-        # fig.savefig(imgdata, format='png',bbox_inches='tight', dpi=100)
-        fig.savefig(imgdata, format='png',bbox_inches='tight')
+        # fig.savefig(imgdata, format='png',bbox_inches='tight', dpi=50)
+        fig.savefig(imgdata, format='png',bbox_inches='tight', dpi=100)
         worksheet.insert_image(i,0+Col*2, '', {'image_data': imgdata})
         Col+=1
     workbook.close()
     return output.getvalue() 
-
-    
-
+   
 def export_excel(algo, Type):
     confs = algo.confs
     dfmap = algo.dfmap
@@ -191,11 +189,11 @@ def load_data_brut(File , select = None):
         DataCategorie =  DataCategorie,
         Tuyau = [4],     
         Npa = 4,
-        Npc = 0,
+        Npc = 4,
         PompesSelect = ['Pa'] * 4 + ['Pc'] * 0,  
         Pmax = 4,
         PompeB = False,
-        BusActif = True, 
+        BusActif = False, 
         Split = 'Deactivate', 
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
@@ -214,6 +212,8 @@ def load_data_brut(File , select = None):
         Limit0 = Limit0,
         dfcapteur = dfc,
         ListPlimSlot = ListPlimSlot,
+        SaveRun = [],
+        iterations = 1,
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -320,7 +320,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     algo.indivs.append(indiv)
     algo.Nrepro += 1  
     algo.Nindiv += 1   
-
+    # print(indiv.keys())
     return indiv
 
 def Gen_Objectif(algo, indiv):
@@ -400,6 +400,8 @@ def Gen_Objectif(algo, indiv):
         L += ptlist
     PompeSum= dict(Counter(L))
     dist = sum([dist_Connect[line] for line in Name])
+    if Option == 'Bus':
+        dist = sum([BusDist[line] for line in Name])
     # dist = round(dist,2)
     dist = int(100*dist)
         
@@ -430,11 +432,12 @@ def Gen_Objectif(algo, indiv):
         EvTot += len(Elist)
     indiv['EvCount'] = EvCount
     indiv['EvSum'] = EvTot
-    
-    
+        
     info , d = calcul_Masse_cout(indiv, algo)
     indiv.update(d)
-    
+    # indiv['mc_details'] = info  
+    indiv['DetailsMasse'] = info[0]
+    indiv['DetailsCout'] = info[1]
     # d =  Calcul_Debit(algo ,indiv, Split = 'Forced')
     # d = {k + '_S' : v for k,v in d.items()}
     
@@ -540,8 +543,8 @@ def calcul_Masse_cout(indiv, algo):
                 factor = 1
                 masse += factor * algo.DataCategorie[Categorie]['Values'][pt]['Masse']
                 cout  += factor * algo.DataCategorie[Categorie]['Values'][pt]['Cout']             
-            dmasse[Categorie] = int(masse)
-            dcout[Categorie]  = int(cout)
+            dmasse[Categorie] = round(masse,1)
+            dcout[Categorie]  = round(cout,1)
         if Categorie == 'Tuyau' :
             # distPerLine  = np.array([algo.dist[line] for line in indiv['Name']])
             distPerLine  = np.array(list(indiv['dist_Connect'].values()))
@@ -551,15 +554,19 @@ def calcul_Masse_cout(indiv, algo):
                 Name = indiv['BusName']
             MassePerLine = np.array([v[algo.duriteType[line]]['Masse'] for line in Name])
             CoutPerLine  = np.array([v[algo.duriteType[line]]['Cout']  for line in Name])
-            dmasse[Categorie] = (distPerLine * MassePerLine).sum()
-            dcout[Categorie]  = (distPerLine * CoutPerLine).sum()
+            masse = (distPerLine * MassePerLine).sum()
+            cout = (distPerLine * CoutPerLine).sum()
+            dmasse[Categorie] = round(masse,1)
+            dcout[Categorie]  = round(cout,1)
         if Categorie == 'EV' :
             Ccount = len(algo.Comb['C'])
             Ccount = sum([len(l) for l in indiv['Esplit'].values()])
             Factor = Ccount
             Name = algo.EV  
-            dmasse[Categorie] = int(sum([Factor * v[n]['Masse'] for n in Name]))
-            dcout[Categorie]  = int(sum([Factor * v[n]['Cout']  for n in Name]))
+            masse = sum([Factor * v[n]['Masse'] for n in Name])
+            cout  = sum([Factor * v[n]['Cout']  for n in Name])
+            dmasse[Categorie] = round(masse,1)
+            dcout[Categorie]  = round(cout,1)
             
     dmasse['Reservoir'] = 600
     dcout['Reservoir']  = 30  
