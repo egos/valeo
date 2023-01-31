@@ -197,7 +197,7 @@ if menu == 'Algo':
          
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
-        algo.pop   = c1.number_input(label  = 'indiv pop init',value = algo.pop, min_value = 1,  max_value  = 1000,step = 10)
+        algo.pop   = c1.number_input(label  = 'indiv pop init',value = algo.pop, min_value = 1,  max_value  = 100000,step = 10)
         algo.iterations = c2.number_input(label  = 'iterations / run',value = algo.iterations, min_value = 1,  max_value  = 1000,step = 1)
         # algo.fitness = c3.selectbox('fitness',['dist','Masse','Cout'])
         txt = "indivs selectionnés avec la meilleur fitness pour crossover => 2 enfants"
