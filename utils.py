@@ -75,7 +75,7 @@ def export_excel(algo, Type):
         dfline.drop(columns = 'duriteVal').to_excel(writer, sheet_name='lines') 
         dfcapteur.to_excel(writer, sheet_name='slot') 
 
-    writer.save()
+    writer.close()
     processed_data = output.getvalue()
     return processed_data
 
