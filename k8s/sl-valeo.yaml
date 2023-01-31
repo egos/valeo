@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sl-valeo
+spec:
+  selector:
+    matchLabels:
+      app: sl-valeo
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: sl-valeo
+    spec:
+      containers:
+        - name: sl-valeo
+          image: registry.gitlab.com/agaetis/valeo/streamlit-valeo
+          ports:
+            - containerPort: 8501
+      imagePullSecrets:
+        - name: agaetis-gitlab-registry-secret
