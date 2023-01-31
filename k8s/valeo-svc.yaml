@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sl-valeo
+  labels:
+    app: sl-valeo
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8501
+      protocol: TCP
+  selector:
+    app: sl-valeo
