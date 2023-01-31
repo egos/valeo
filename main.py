@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import networkx as nx
+# import networkx as nx
 import itertools 
 import math
 import time
@@ -251,14 +251,15 @@ if menu == 'Algo':
     if c4.button('RUN'):
         print("Params : RUN") 
         algo.SaveRun = [] 
+        iterations = algo.iterations
         d = dict(
-            indivs_total = algo.Nrepro,
+            indivs_total  = algo.Nrepro,
             indivs_unique = algo.df.shape[0],
-            indivs_alive = algo.df.Alive.sum(),)
+            indivs_alive  = algo.df.Alive.sum(),)
         algo.SaveRun.append(d)         
         # latest_iteration = st.empty()                 
         my_bar = st.empty()     
-        for i in range(algo.iterations):
+        for i in range(iterations):
             # latest_iteration.text(f'{iterations - i} iterations left')
             my_bar.progress((i+1)/iterations)
             algo.epoch +=1
@@ -313,10 +314,6 @@ if menu == 'Algo':
         # algo.df = df.drop_duplicates(subset='Name_txt')
         session_state['algo'] = algo   
     df1 = algo.df.copy()
- 
-    # Col_drop = []
-    # c1,c2,c3,c4, c5, c6  = st.columns(6)   
-    
 
     if len(algo.SaveRun)> 1 : 
         with st.expander("Run Stats", True):
