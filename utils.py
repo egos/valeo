@@ -214,6 +214,7 @@ def load_data_brut(File , select = None):
         ListPlimSlot = ListPlimSlot,
         SaveRun = [],
         iterations = 1,
+        PlotLineWidth = [1,3],
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -509,16 +510,19 @@ def Indiv_reverse(Name,algo, Ptype = None):
     CtoE = {}
     EtoP = {}
     for n in NameList:
-        if n[0] == 'E':
-            c = int(n[-1])
-            e = int(n[1])
+        # print(n)
+        slot1, slot2 = n.split('-')
+        if slot1[0] == 'E':
+            c = int(slot2[1:])
+            e = int(slot1[1:])
             CtoE[c] = e
-
-        if n[0] == 'P':
-            e = int(n[-1])
-            p = int(n[1])
-            EtoP[e] = p
+            # print(e,c) 
             
+        if slot1[0] == 'P':
+            e = int(slot2[1:])
+            p = int(slot1[1:])
+            EtoP[e] = p
+            # print(e,p)   
     d = dict(sorted(CtoE.items()))
     Clist = list(d.keys())
     CtoE = list(d.values())
@@ -871,9 +875,9 @@ def new_plot(algo,SelectLine, SelectSlot):
         n = offset[i]  
         p = data['path']
         if slot[0] == 'E' : 
-            f= ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=2, zorder=1, linestyle ='-')
+            f= ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=1, zorder=1, linestyle ='-')
         else : 
-            f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=3, zorder=1, linestyle ='-')
+            f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=1, zorder=1, linestyle ='-')
 
     style = dict(size= 15 * 9 / Ymax, color='black')
     for slot, pos in DictPos.items(): 
