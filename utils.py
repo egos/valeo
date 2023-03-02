@@ -863,6 +863,7 @@ def new_plot(algo,SelectLine, SelectSlot):
     ListWall = algo.ListWall
     A0 = algo.A0
     Ymax , Xmax = A0.shape
+    print(A0.shape)
     PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee"}
     fig, ax = plt.subplots(figsize = (8,8))
     f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
@@ -879,14 +880,15 @@ def new_plot(algo,SelectLine, SelectSlot):
         else : 
             f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=1, zorder=1, linestyle ='-')
 
-    style = dict(size= 15 * 9 / Ymax, color='black')
+    # style = dict(size= 15 * 9 / Ymax, color='black')
+    style = dict(size= 16, color='black')
     for slot, pos in DictPos.items(): 
         x , y = pos
         Type = slot[0]
         color = PlotColor[Type]
         f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color=color))
         f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color='black', fill = None))
-        f = ax.text(y, x+0.1,slot[1:] , **style,  ha='center', weight='bold') 
+        f = ax.text(y, x + 0.3,slot[1:] , **style,  ha='center', weight='bold') 
         
     for x,y in ListWall: 
         f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black'))    
