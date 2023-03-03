@@ -879,19 +879,21 @@ def new_plot(algo,SelectLine, SelectSlot):
             f= ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=1, zorder=1, linestyle ='-')
         else : 
             f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=1, zorder=1, linestyle ='-')
-
+            
+    for x,y in ListWall: 
+        f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black')) 
     # style = dict(size= 15 * 9 / Ymax, color='black')
-    style = dict(size= 16, color='black')
+    style = dict(size= 7, color='black')
+    rs = 0.7
     for slot, pos in DictPos.items(): 
         x , y = pos
         Type = slot[0]
         color = PlotColor[Type]
-        f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color=color))
-        f = ax.add_patch(mpatch.Rectangle((y-0.45,x-0.45), 0.9, 0.9, color='black', fill = None))
-        f = ax.text(y, x + 0.3,slot[1:] , **style,  ha='center', weight='bold') 
+        f = ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color=color))
+        f = ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color='black', fill = None))
+        f = ax.text(y, x + 0.4,slot[1:] , **style,  ha='center', weight='bold') 
         
-    for x,y in ListWall: 
-        f = ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black'))    
+       
     
     
     return  fig
