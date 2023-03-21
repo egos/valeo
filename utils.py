@@ -893,9 +893,6 @@ def new_plot(algo,SelectLine, SelectSlot):
         f = ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color='black', fill = None))
         f = ax.text(y, x + 0.4,slot[1:] , **style,  ha='center', weight='bold') 
         
-       
-    
-    
     return  fig
 
 def Path1(A,start): 
