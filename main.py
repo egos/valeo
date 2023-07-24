@@ -36,8 +36,8 @@ ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
 ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
-ColBase =  ['ID', 'Option','PompeCount','EvCount', 'Debit','dist', 'Masse', 'Cout',
-            'fitness','Epoch', 'Alive','parent','Name_txt']
+ColBase =  ['ID', 'Option','Pconnect' ,'Debit','dist', 'Masse', 'Cout',
+            'fitness','Epoch', 'Alive','parent','Name_txt','PressionList','DebitList']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 today = time.strftime("%Y%m%d-%H:%M:%S")
@@ -159,11 +159,12 @@ if menu == 'Algo':
         # d2[0] = sorted(d2[0])      
         GroupDict = dict(sorted(GroupDict.items())) 
         GroupDict = np.array(list(GroupDict.values()))
+
         # algo = load_data_brut(file)
         # algo.GroupDict = dict(sorted(d2.items())) 
         algo.GroupDict = GroupDict
         algo.Group = ~(GroupDict == 0).all()
-        
+
         algo.Nozzles = Nozzles
         Nvals   = [algo.DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
         algo.Nvals = dict(zip(Clist, Nvals))
@@ -182,7 +183,7 @@ if menu == 'Algo':
         algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
         if not algo.Group : Split = 'Deactivate'
         algo.Split  = Split
-        algo.BusActif = BusActif & (not algo.Group) & (not PompeB)        
+        # algo.BusActif = BusActif & (not algo.Group) & (not PompeB)        
         algo.Npa = Npa
         algo.Npc = Npc
         algo.Pmax = Npa + Npc
@@ -230,13 +231,14 @@ if menu == 'Algo':
         default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
         default = ''
         NameIndiv = st.text_input('reverse name_txt to indiv', default,help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
-        NameIndiv = NameIndiv.replace(" ",'').split(';')
+        NameIndiv = NameIndiv.replace(" ",'').replace('"','').split(';')
         
     session_state['algo'] = algo        
     st.write('Group = ',algo.Group, ', Pompe_B = ',algo.PompeB , ', Split = ', algo.Split, ', BUS = ', algo.BusActif)   
     c0,c1,c2,c3,c4 = st.columns(5) 
     algo.Plot = c0.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
     KeepResults =  c1.checkbox('Keep results') 
+    algo.DebitCalculationNew = c1.checkbox('DebitCalculationNew', value = algo.DebitCalculationNew) 
             
     if c2.button('RESET'):
         print('Params : RESET')              

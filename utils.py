@@ -198,7 +198,7 @@ def load_data_brut(File , select = None):
         PompesSelect = ['Pa'] * 4 + ['Pc'] * 0,  
         Pmax = 4,
         PompeB = False,
-        BusActif = False, 
+        BusActif = True, 
         Split = 'Deactivate', 
         EV = ['Ea'],    
         Nozzles  = Nozzles,  
@@ -221,7 +221,7 @@ def load_data_brut(File , select = None):
         iterations = 1,
         PlotLineWidth = [1,3],
         ListBusPactif = [True] * len(Comb['P']),
-        DebitCalulationMode = 'new'
+        DebitCalculationNew = True
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -382,7 +382,6 @@ def Gen_Objectif(algo, indiv):
         Option = 'Pb'   
                   
     elif algo.BusActif:
-    #elif algo.BusActif & (not algo.Group):
 
         dist_Connect, BusName, BusConnectDict = Bus_Connection(algo, indiv, dist_Connect)
         duriteVal    = dict(zip(Name, [algo.duriteVal[line] for line in BusName]))
@@ -433,14 +432,18 @@ def Gen_Objectif(algo, indiv):
     indiv.update(d)
            
     # calcul debit ['PressionList','DebitList','Esplit','Debit']
-    d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
-    indiv.update(d)
-
-    IndivLine = indiv_lines_conf(algo, indiv)
-    indiv['IndivLine'] = IndivLine
-    res,d = New_debit(algo,indiv)
-    indiv.update(d)
+    
     # print(d)
+    # print(algo.GroupDict,algo.BusActif)
+    if algo.DebitCalculationNew:           
+        IndivLine = indiv_lines_conf(algo, indiv)        
+        indiv['IndivLine'] = IndivLine
+        res,d = New_debit(algo,indiv)
+        indiv.update(d)
+    else : 
+        d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
+        indiv.update(d)
+
     
     Esplit = indiv['Esplit']
     EvCount = {}
@@ -463,7 +466,7 @@ def Gen_Objectif(algo, indiv):
     fitness = 0
     for i in range(3): fitness+= indiv[ListFitness[i]] * algo.fitnessCompo[i]        
     indiv['fitness'] = round(fitness,5)
-    
+    # print(indiv['PressionList'], algo.Nozzlelimits) 
     indiv['Alive'] = False if  (np.array(indiv['PressionList']) < algo.Nozzlelimits).any() else True 
     ListPlimSlot = algo.ListPlimSlot
     cond = True
@@ -695,7 +698,7 @@ def debit(algo,indiv,debitinput, grouped = True, split = True):
     # coef_d_PtoE = algo.duriteVal['P{}-E{}'.format(pompe,ev)] 
     coef_d_PtoE = indiv['duriteVal']['P{}-E{}'.format(pompe,ev)]     
     
-    
+    # print(debitinput, coef_d_PtoE, d_EtoC_list, coef_d_EtoC, coef_C, coef_d_PtoE * d_PtoE)
     A = coef_E + d_EtoC_list * coef_d_EtoC + coef_C 
     # print(A)
     Z = ( A**-0.5).sum() if grouped else A**-0.5
@@ -890,8 +893,7 @@ def new_import(dfmap, DistFactor):
         ID = end + '-' + begin
         DictEtoE[ID] = {'path' : path, 'dist' : dist}
 
-    DictLine.update(DictEtoE)   
-    
+    DictLine.update(DictEtoE)       
     
     return DictLine, DictPos, A0,dict(Comb), ListWall
       
@@ -1040,6 +1042,7 @@ def indiv_lines_conf(algo, indiv):
     Cconnect =  { v: k for k, l in indiv['Econnect'].items() for v in l } # a bouger de place 
 
     Pline = indiv['BusConnectDict']
+    # print(Pline)
     IndivLine = []
     Gconnect = {}
     # loop sur BusConnectDict generer via func bus_connection qui doit prendre en compte le remove des PtoE 
@@ -1073,7 +1076,7 @@ def indiv_lines_conf(algo, indiv):
             p = p,        
             e = Elist,
             gr = gr,
-            pt = 'Pa',
+            pt = Ptype[i],
             Gconnect = Gconnect
         )
         
@@ -1116,6 +1119,7 @@ def New_debit(algo,indiv):
                 # donc prendre en compte pour le calcul de coef_PtoE
                 G = G - coef_PtoE[i]*(Q0-Qx)**2
                 G[G<0] = 0
+                print(coef_E, d_EtoC, coef_d_EtoC, coef_C)
                 A = coef_E + d_EtoC * coef_d_EtoC + coef_C 
     #             print(coef_E ,d_EtoC , coef_d_EtoC ,coef_C,  A)
                 Alist.append(A.round(3))
@@ -1125,7 +1129,7 @@ def New_debit(algo,indiv):
                 Qx = Qi.sum(0)           
 
             # le offset de -1 pour retrouver la plus proche valeur de Q0 -Qx facile 
-            idx = np.searchsorted(Q0 - Qx, -1)
+            idx = np.searchsorted(Q0 - Qx, -0.1)
             # idx
             Qi = np.vstack(Qlist)[:,idx].round(3)
             Pi = (np.concatenate(Alist)* (Qi**2)).round(3)
@@ -1139,20 +1143,103 @@ def New_debit(algo,indiv):
                 Alist = Alist,
             )
             res.append(r)
-        Debit = {}
-        Pression = {}
-        for v in res:
-            Clist = list(itertools.chain.from_iterable(v['ClistDict'].values()))
-            Clist ,v['Qi']
-            for i , c in enumerate(Clist):
-                Debit[c]    = v['Qi'][i]
-                Pression[c] = v['Pi'][i] 
-        DebitList    = list((dict(collections.OrderedDict(sorted(Debit.items()))).values()))
-        PressionList = list((dict(collections.OrderedDict(sorted(Pression.items()))).values()))
-        SumDebit = round(sum(DebitList),1)
-        keys = ['PressionList','DebitList','Esplit','Debit']
-        vals = [PressionList, DebitList,{}, SumDebit] 
-        d = dict(zip(keys,vals))
+    
+    Debit = {}
+    Pression = {}
+    for v in res:
+        Clist = list(itertools.chain.from_iterable(v['ClistDict'].values()))
+        Clist ,v['Qi']
+        for i , c in enumerate(Clist):
+            Debit[c]    = v['Qi'][i]
+            Pression[c] = v['Pi'][i] 
+    DebitList    = list((dict(collections.OrderedDict(sorted(Debit.items()))).values()))
+    PressionList = list((dict(collections.OrderedDict(sorted(Pression.items()))).values()))
+    SumDebit = round(sum(DebitList),1)
+    keys = ['PressionList','DebitList','Esplit','Debit']
+    vals = [PressionList, DebitList,{}, SumDebit] 
+    d = dict(zip(keys,vals))
     return res,d
 
+def new_import_T(dfmap, DistFactor):
+    # print('new_import')    
+    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
+    slots = ['C','P','E',"T"]    
     
+    A0 = dfmap.values
+    Size = max(A0.shape)
+    # DistFactor = Size / DistFactor
+    
+    Comb = collections.defaultdict(list)
+    DictPos = {}    
+    ListBegin = []
+    ListEnd = []   
+    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
+        
+    slots = ['C','P','E',"T"]  
+    slotsN = dict(zip(slots,[0,0,0,0]))
+
+    for iy, ix in np.ndindex(A0.shape):
+        v = A0[iy, ix]
+        if type(v) == str: 
+            slot = v[0]
+            n = slotsN[slot]
+            slotsN[slot] = n+1
+            v = slot + str(n)
+            A0[iy,ix] = SlotColor[slot]*20
+            #Comb[v[0]].append(int(v[1:]))
+            Comb[v[0]].append(int(n))
+            DictPos[v] = (iy,ix)
+            
+            if slot == "E" : ListBegin.append(v)
+            else : ListEnd.append(v)    
+               
+    A0 = A0.astype(float)      
+    Ax = np.ones((Size,Size))
+    Ax[:A0.shape[0],:A0.shape[1]] = A0
+    ListBegin, ListEnd = sorted(ListBegin), sorted(ListEnd)
+        
+    Path = {}
+    DictLine = {}
+    
+    for begin in ListBegin:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        for end in ListEnd: 
+            goal = DictPos[end]        
+            path = Path2(A1.copy() ,start,  goal)
+            path = np.array(path)       
+            dist = (np.abs(np.diff(path.T)).sum() * DistFactor).round(2)
+            
+            if end[0] == 'C' : ID = begin + '-' + end
+            else : ID = end + '-' + begin
+
+            DictLine[ID] = {'path' : path, 'dist' : dist}        
+
+    ListEv =  ['E' + str(n) for n in Comb['E']]
+    # it = itertools.permutations(ListEv, 2) # pour avoir les 2 sens sur EtoE
+    it = itertools.combinations(ListEv, 2)
+    ListEtoE = list(it)
+    ListEtoE
+    print(ListEv, ListEtoE)
+
+    DictEtoE = {}
+    for begin, end in ListEtoE:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        goal = DictPos[end]        
+        path = Path2(A1.copy() ,start,  goal)
+        path = np.array(path)       
+        dist = (np.abs(np.diff(path.T)).sum() * DistFactor).round(2)
+
+        # if end[0] == 'C' : ID = begin + '-' + end
+        # elif begin[0] == 'P' : ID = begin + '-' + end    
+        # else :
+        ID = end + '-' + begin
+        DictEtoE[ID] = {'path' : path, 'dist' : dist}
+
+    DictLine.update(DictEtoE)       
+    
+    return DictLine, DictPos, A0,dict(Comb), ListWall
+     
