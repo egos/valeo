@@ -95,7 +95,7 @@ def load_data_brut(File , select = None):
     # print(DictLine)
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
     print(sheet_names)
-    
+    SheetMapNameList = [n for n in sheet_names if "map" in n]
     dfline = pd.DataFrame(DictLine).T
 
     dfline.index.name = 'ID'
@@ -168,6 +168,8 @@ def load_data_brut(File , select = None):
     Nozzlelimits = Limit0
     algo = dict(
         SheetMapName = SheetMapName,
+        sheet_names = sheet_names,
+        SheetMapNameList = SheetMapNameList,
         uploaded_file = uploaded_file,
         DistFactor = DistFactor,
         dfmap = dfmap,
@@ -218,7 +220,8 @@ def load_data_brut(File , select = None):
         SaveRun = [],
         iterations = 1,
         PlotLineWidth = [1,3],
-        ListBusPactif = [True] * len(Comb['P'])
+        ListBusPactif = [True] * len(Comb['P']),
+        DebitCalulationMode = 'new'
         )
     algo = SimpleNamespace(**algo)
     return algo
@@ -437,6 +440,7 @@ def Gen_Objectif(algo, indiv):
     indiv['IndivLine'] = IndivLine
     res,d = New_debit(algo,indiv)
     indiv.update(d)
+    # print(d)
     
     Esplit = indiv['Esplit']
     EvCount = {}
@@ -1118,9 +1122,7 @@ def New_debit(algo,indiv):
                 # magie on tile la mtrice sur A step correspond au tableau excel etendu sur la droite
                 Qlist.append(np.sqrt(G / A[:,np.newaxis]))
                 Qi = np.vstack(Qlist)  # a essayer de passer en append coté numpy 
-                Qx = Qi.sum(0)
-            
-
+                Qx = Qi.sum(0)           
 
             # le offset de -1 pour retrouver la plus proche valeur de Q0 -Qx facile 
             idx = np.searchsorted(Q0 - Qx, -1)
@@ -1147,7 +1149,7 @@ def New_debit(algo,indiv):
                 Pression[c] = v['Pi'][i] 
         DebitList    = list((dict(collections.OrderedDict(sorted(Debit.items()))).values()))
         PressionList = list((dict(collections.OrderedDict(sorted(Pression.items()))).values()))
-        SumDebit = round(sum(Debit),1)
+        SumDebit = round(sum(DebitList),1)
         keys = ['PressionList','DebitList','Esplit','Debit']
         vals = [PressionList, DebitList,{}, SumDebit] 
         d = dict(zip(keys,vals))

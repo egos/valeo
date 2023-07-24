@@ -69,7 +69,8 @@ with st.expander('input & pathfinding : 🖱️ press submit for change take eff
         c1, c2 = st.columns([0.6,0.4])
         
         uploaded_file = c1.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
-        SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
+        # SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
+        SheetMapName  = c2.selectbox(label = "map excel sheet name", options = algo.SheetMapNameList) 
         DistFactor = c2.number_input(label = 'DistFactor ==> metre', value = 0.1)
         File = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file, 'DistFactor' : DistFactor}
         submitted = st.form_submit_button("Submit & Reset")
