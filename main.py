@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-# import networkx as nx
+import networkx as nx
 import itertools 
 import math
 import time
@@ -176,8 +176,8 @@ if menu == 'Algo':
         PompeB = c3.checkbox(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
         ListSplitName = ['Deactivate','Auto','Forced']
         Split  = c4.selectbox('Split',['Deactivate','Auto','Forced'] , help = 'si no group = Deactivate', index = ListSplitName.index(algo.Split))
-        BusActif  = c5.checkbox(label = 'Bus',value = algo.BusActif)      
-        
+        #BusActif  = c5.checkbox(label = 'Bus',value = algo.BusActif) 
+        BusActif = True     
         algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
         if not algo.Group : Split = 'Deactivate'
         algo.Split  = Split
@@ -193,8 +193,16 @@ if menu == 'Algo':
         for i in range(len(ListPlimSlot)):
             v = stCol[i].number_input(label = 'P{}'.format(i), min_value=0, value = ListPlimSlot[i], key = 'ListPlimSlot' + str(i))
             New_ListPlimSlot.append(v)   
-        algo.ListPlimSlot = New_ListPlimSlot    
-         
+        algo.ListPlimSlot = New_ListPlimSlot  
+
+        ListBusPactif = []
+        Len = len(algo.Comb['P'])
+        stCol = st.columns(Len)
+        for i in range(Len):
+            x = stCol[i].checkbox(label = 'Bus P{}'.format(i) , value = algo.ListBusPactif[i])
+            ListBusPactif.append(x)
+        algo.ListBusPactif = ListBusPactif
+                 
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = algo.pop, min_value = 1,  max_value  = 100000,step = 10)
