@@ -204,6 +204,9 @@ if menu == 'Algo':
             x = stCol[i].checkbox(label = 'Bus P{}'.format(i) , value = algo.ListBusPactif[i])
             ListBusPactif.append(x)
         algo.ListBusPactif = ListBusPactif
+
+        Tactived = st.checkbox(label="T connection", value = algo.Tactived )
+        algo.Tactived = Tactived
                  
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
@@ -380,6 +383,7 @@ if menu == 'Algo':
         with st.expander("Dataframe", True):
             st.dataframe(dfx, use_container_width  =True)                    
         with st.expander("Figures", True): 
+            hideEtoC = st.checkbox('hideEtoC',False)
             c1 , c2 = st.columns(2)
             Empty = c2.empty()
             if algo.Plot: 
@@ -406,9 +410,11 @@ if menu == 'Algo':
                         SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
                     SelectLine = row.Name
                     if row.Option == 'Bus' :   SelectLine = row.BusName
-
+                    if algo.Tactived: 
+                        SelectSlot+=['T{}'.format(t) for t in algo.Comb['T']]
+                        SelectLine = row.BusName                        
                     col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
-                    fig = new_plot(algo, SelectLine, SelectSlot)
+                    fig = new_plot(algo, SelectLine, SelectSlot,hideEtoC)
                     col[i].pyplot(fig)
                     ListResultsExport.append({'row':row.drop(labels= Col_drop), 'fig': fig})
    

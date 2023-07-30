@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import matplotlib.patches as mpatch
 from collections import Counter
 import xlsxwriter
+from sklearn.cluster import KMeans
 
 #ctrl k ctrl &  //// fold level1 
 
@@ -91,7 +92,7 @@ def load_data_brut(File , select = None):
     # DistFactor = 1
     dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
         
-    DictLine, DictPos, A0,Comb, ListWall = new_import(dfmap, DistFactor)
+    DictLine, DictPos, A0,Comb, ListWall = new_import_T(dfmap, DistFactor)
     # print(DictLine)
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
     print(sheet_names)
@@ -99,6 +100,7 @@ def load_data_brut(File , select = None):
     dfline = pd.DataFrame(DictLine).T
 
     dfline.index.name = 'ID'
+
     dfline.reset_index(inplace = True)
     dfline['duriteType'] = 4
     if "lines" in sheet_names : 
@@ -109,7 +111,9 @@ def load_data_brut(File , select = None):
         # dfline = dfline[lines_add.Select=='o']
         # dfline = dfline[]
     # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
-    
+    dfline['s'] = dfline.ID.str.split('-').str[0]
+    dfline['t'] = dfline.ID.str.split('-').str[1]
+    dfline['Connect'] = dfline['s'].str[0] + dfline['t'].str[0]
   
     CombAll = list(DictPos.keys())
     
@@ -193,10 +197,10 @@ def load_data_brut(File , select = None):
         df = pd.DataFrame(),
         DataCategorie =  DataCategorie,
         Tuyau = [4],     
-        Npa = 4,
+        Npa = 10,
         Npc = 4,
-        PompesSelect = ['Pa'] * 4 + ['Pc'] * 0,  
-        Pmax = 4,
+        PompesSelect = ['Pa'] * 10 + ['Pc'] * 0,  
+        Pmax = 10,
         PompeB = False,
         BusActif = True, 
         Split = 'Deactivate', 
@@ -221,9 +225,15 @@ def load_data_brut(File , select = None):
         iterations = 1,
         PlotLineWidth = [1,3],
         ListBusPactif = [True] * len(Comb['P']),
-        DebitCalculationNew = True
+        DebitCalculationNew = True,
+        G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist']),
+        PtoTConnect = {},
+        Tactived = False
         )
     algo = SimpleNamespace(**algo)
+    if 'T' in Comb:
+        algo.PtoTConnect = PToT_path(algo)  
+    
     return algo
 
 def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None): 
@@ -435,6 +445,15 @@ def Gen_Objectif(algo, indiv):
     
     # print(d)
     # print(algo.GroupDict,algo.BusActif)
+    if ('T' in algo.Comb) & algo.Tactived:
+        BusTNames = []
+        for p in indiv['Plist']:
+            L = Tconnection_v4(algo, indiv,p)
+            BusTNames = BusTNames + L
+        indiv['BusName'] = BusTNames
+        indiv['Option'] = 'Na'
+
+
     if algo.DebitCalculationNew:           
         IndivLine = indiv_lines_conf(algo, indiv)        
         indiv['IndivLine'] = IndivLine
@@ -443,7 +462,6 @@ def Gen_Objectif(algo, indiv):
     else : 
         d =  Calcul_Debit(algo ,indiv, Split = algo.Split)
         indiv.update(d)
-
     
     Esplit = indiv['Esplit']
     EvCount = {}
@@ -897,7 +915,7 @@ def new_import(dfmap, DistFactor):
     
     return DictLine, DictPos, A0,dict(Comb), ListWall
       
-def new_plot(algo,SelectLine, SelectSlot):
+def new_plot(algo,SelectLine, SelectSlot, hideEtoC = False):
     DictLine = {k:v for k,v in algo.DictLine.items() if k in SelectLine}
     DictPos  = {k:v for k,v in algo.DictPos.items()  if k in SelectSlot}
     LenPath = len(DictLine) # = nombre de ligne 
@@ -905,7 +923,7 @@ def new_plot(algo,SelectLine, SelectSlot):
     A0 = algo.A0
     Ymax , Xmax = A0.shape
     print(A0.shape)
-    PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee"}
+    PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee", 'T': '#C0C0C0'}
     fig, ax = plt.subplots(figsize = (8,8))
     f = ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
     f = ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
@@ -915,11 +933,17 @@ def new_plot(algo,SelectLine, SelectSlot):
     MinOffset = MinOffset if MinOffset < 0.4 else 0.4
     # MinOffset = 0.5
     offset = np.linspace(-MinOffset,MinOffset,LenPath)
-    for i, (slot,data) in enumerate(DictLine.items()):
+    for i, (line,data) in enumerate(DictLine.items()):
         n = offset[i]  
         p = data['path']
-        if slot[0] == 'E' : 
-            f= ax.plot(p[:,1]+n,p[:,0]+n,"#32cdff", linewidth=2, zorder=1, linestyle ='-')
+        
+        slots = line.split('-')
+        # print(line, slots)
+        if (slots[1][0] == 'C') :
+            if (not hideEtoC): 
+                f= ax.plot(p[:,1]+n,p[:,0]+n,"white", linewidth=2, zorder=1, linestyle ='-')
+        elif slots[1][0] == 'E' : 
+            f= ax.plot(p[:,1]+n,p[:,0]+n,"#2CB73D", linewidth=2, zorder=1, linestyle ='-')
         else : 
             f =ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=2, zorder=1, linestyle ='-')
             
@@ -935,7 +959,6 @@ def new_plot(algo,SelectLine, SelectSlot):
         f = ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color=color))
         f = ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color='black', fill = None))
         f = ax.text(y, x + 0.2,slot[1:] , **style,  ha='center', weight='bold') 
-
         
     return  fig
 
@@ -976,61 +999,6 @@ def Path2(A,start,goal):
         pos = (int(np.ceil(v/N)-1),  v%N)
         L.insert(0,pos)
     return L  
-
-def Bus_Connection_v2(algo, indiv, dist_Connect):
-    New_dist_Connect = copy.deepcopy(dist_Connect)
-    BusName = copy.deepcopy(indiv['Name'])
-    Pconnect = indiv['Pconnect']
-    
-    dfx0 = algo.dfline.copy()
-    dfx0['a'] = dfx0.ID.str.split('-').str[0]
-    dfx0['b'] = dfx0.ID.str.split('-').str[1]
-    
-    NameListNew  = []
-    DictMapName = {}
-    BusConnectDict = []
-    for i, (p,Elist) in enumerate(Pconnect.items()): 
-        print(i, (p,Elist))
-        EvDrop = 2
-        if EvDrop in Elist:         Elist.remove(EvDrop)
-
-        s = 'P{}'.format(p)
-        ElistName = ['E{}'.format(e) for e in Elist]
-        ListMask = [s] + ElistName
-        mask0 = dfx0.a.isin(ListMask) & dfx0.b.isin(ListMask)
-        dfx = dfx0[mask0].copy()
-        path,dist,lines = [s] ,[], []
-        L = []
-        
-        # pour chaque slot de P commence avec s = Px et avance par iter sur le plus proche E & crop  dfx = dfline 
-        # l'astuce c'est que qu'on conserve les lines P-E mais en changeant les valeurs de dist
-        while len(dfx)>0:
-            mask = dfx.ID.str.contains(s)
-            x  = dfx[mask].dist.values.argmin()    
-            cx = dfx[mask][['a','b']].iloc[x].values
-            line = dfx[mask].iloc[x].ID
-            lines.append(line)
-            NameListNew.append(line)
-            dist.append(dfx[mask].dist.values.min())    
-            dfx = dfx[~mask]
-            s = cx[cx!=s][0]
-            L.append(int(s[1:]))
-            path.append(s)
-        BusConnectDict.append({'p':p,'e':L})  
-        # print(BusConnectDict)
-        distCumsum = np.array(dist).cumsum()
-        PxConnect = ['{}-{}'.format(path[0],s) for s in path[1:]]
-        DictMapName.update(dict(zip(PxConnect,lines)))
-        # print(p,Elist, PxConnect)   
-        d = dict(zip(PxConnect,distCumsum))
-        # BusConnectDict[p].append()
-        New_dist_Connect.update(d)
-        print('bus',path[0], p,Elist, PxConnect,path,lines,dist, distCumsum, PxConnect)
-
-    # quelle galere obliger de passer par Series pour map les old  et new name 
-    BusName = pd.Series(BusName).replace(DictMapName).tolist()
-    
-    return New_dist_Connect, BusName, BusConnectDict
 
 def indiv_lines_conf(algo, indiv):
     GroupDict = algo.GroupDict
@@ -1119,7 +1087,7 @@ def New_debit(algo,indiv):
                 # donc prendre en compte pour le calcul de coef_PtoE
                 G = G - coef_PtoE[i]*(Q0-Qx)**2
                 G[G<0] = 0
-                print(coef_E, d_EtoC, coef_d_EtoC, coef_C)
+                # print(coef_E, d_EtoC, coef_d_EtoC, coef_C)
                 A = coef_E + d_EtoC * coef_d_EtoC + coef_C 
     #             print(coef_E ,d_EtoC , coef_d_EtoC ,coef_C,  A)
                 Alist.append(A.round(3))
@@ -1217,8 +1185,8 @@ def new_import_T(dfmap, DistFactor):
             DictLine[ID] = {'path' : path, 'dist' : dist}        
 
     ListEv =  ['E' + str(n) for n in Comb['E']]
-    # it = itertools.permutations(ListEv, 2) # pour avoir les 2 sens sur EtoE
-    it = itertools.combinations(ListEv, 2)
+    it = itertools.permutations(ListEv, 2) # pour avoir les 2 sens sur EtoE
+    # it = itertools.combinations(ListEv, 2)
     ListEtoE = list(it)
     ListEtoE
     print(ListEv, ListEtoE)
@@ -1238,8 +1206,140 @@ def new_import_T(dfmap, DistFactor):
         # else :
         ID = end + '-' + begin
         DictEtoE[ID] = {'path' : path, 'dist' : dist}
+    DictLine.update(DictEtoE)
 
-    DictLine.update(DictEtoE)       
+    DictTt = {}
+    if "T" in Comb:
+        List1 =  ['T' + str(n) for n in Comb['T']]
+        List2 =  ['P' + str(n) for n in Comb['P']]
+        ListSlots = List1 + List2
+        it = itertools.permutations(ListSlots, 2) # pour avoir les 2 sens sur EtoE
+        # it = itertools.combinations(ListSlots, 2)
+        ListTt= list(it)
+        print(ListSlots, ListTt)
+
+        DictTt = {}
+        for begin, end in ListTt:
+            start = DictPos[begin]
+            A = Ax.copy()
+            A1 = Path1(A,start)
+            goal = DictPos[end]        
+            path = Path2(A1.copy() ,start,  goal)
+            path = np.array(path)       
+            dist = (np.abs(np.diff(path.T)).sum() * DistFactor).round(2)
+
+            # if end[0] == 'C' : ID = begin + '-' + end
+            # elif begin[0] == 'P' : ID = begin + '-' + end    
+            # else :
+            ID = end + '-' + begin
+            DictTt[ID] = {'path' : path, 'dist' : dist}
+
+    DictLine.update(DictTt)       
     
-    return DictLine, DictPos, A0,dict(Comb), ListWall
-     
+    return DictLine, DictPos, A0,dict(Comb), ListWall  
+
+def PToT_path(algo):
+    G0 = algo.G0
+    Start  = ['P{}'.format(t) for t in algo.Comb['P']]
+    Target = ['T{}'.format(t) for t in algo.Comb['T']]
+    SlotNames =Start + Target
+    L = []
+    # backward sur chaque E pour connaitre le bus le plus court vers le plus proche T
+    DictPath = collections.defaultdict(list)
+    G = G0.subgraph(SlotNames).copy()
+    for i, t in enumerate(Target):  
+        NodesDist = [G[t][p]['dist'] for p in Start]
+        n = Start[np.array(NodesDist).argmin()]
+        DictPath[n].append(t)
+
+    DictPath2 = collections.defaultdict(list)
+    for k, Slist in dict(DictPath).items():
+        G = G0.subgraph([k] + Slist).copy()
+        # print([p] + Tlist)
+        n = k
+        Sconnect = [] 
+        SconnectPath = []
+        while G.size()>0 :
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+    #         Sconnect.append(n)
+    #         SconnectPath.append("{}-{}".format(ns,n))
+            DictPath2[k].append(n)
+    DictPath2 = dict(DictPath2)
+    return DictPath2
+
+def Tconnection_v4(algo, indiv, pn):
+    p = 'P{}'.format(pn)
+    PtoTConnect = algo.PtoTConnect[p]
+    Tconnect = PtoTConnect
+    TconnectPath = Line_Name([p] + Tconnect)
+    Tlist = Tconnect
+    # print(p , Tconnect,TconnectPath)
+
+    G0 = algo.G0.copy()
+    Elist = indiv['Pconnect'][pn]
+    ElistName = ['E{}'.format(e) for e in Elist]
+    Elist = ElistName.copy()
+
+    SlotName = ElistName + Tlist
+    L = []
+
+    # on cherche le T le plus porche de chaque E 
+    Start  = Tconnect
+    Target = Elist
+    SlotNames =Start + Target
+    L = []
+    DictPath = collections.defaultdict(list)
+    G = G0.subgraph(SlotNames).copy()
+    for i, t in enumerate(Target):  
+        NodesDist = [G[t][p]['dist'] for p in Start]
+        n = Start[np.array(NodesDist).argmin()]
+        DictPath[n].append(t)
+    DictTpath = dict(DictPath)
+
+    Tconnect2 = Tconnect.copy()
+    for T in Tconnect[::-1]:
+        if  T not in DictTpath:
+            Tconnect2.remove(T)
+        else : 
+            break
+    Tconnect = Tconnect2
+    # print(p , Tconnect,TconnectPath , DictTpath)
+    BusTNames = []
+    DictPath2 = collections.defaultdict(list)
+
+    for i in range(len(Tconnect)):
+            t = Tconnect[i]  
+            BusTNames.append(TconnectPath[i])
+            if t in DictTpath.keys():
+                e_list = DictTpath[t]
+                Glist = [t] + list(e_list)
+                G = G0.subgraph(Glist).copy()
+                n = t
+                FinalPath  = [n]  
+                i+=1  
+                while G.size()>0 :
+                    NodesAdj  = [x[0] for x in G.adj[n].items()]
+                    NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+                    ns = n
+                    G.remove_node(n)
+                    n = NodesAdj[np.array(NodesDist).argmin()]
+                    FinalPath.append(n)
+                    BusTNames.append("{}-{}".format(ns,n))
+                for e in e_list:
+                    Clist = indiv['Econnect'][int(e[1:])]
+                    for c in Clist:
+                        BusTNames.append("{}-C{}".format(e,c))
+                FinalPath  
+    return BusTNames           
+
+def Line_Name(nodes):    
+    LineName = [] 
+    ns = nodes[0]
+    for n in nodes[1:]:
+        LineName.append("{}-{}".format(ns,n))
+        ns = n
+    return LineName

@@ -1,3 +1,230 @@
+def T_connection(algo, indiv):
+    
+    DictLine = algo.DictLine
+    Tlist = ['T{}'.format(t) for t in algo.Comb['T']]
+    G0 = nx.from_pandas_edgelist(algo.dfline, 's', 't', ['dist'])
+    for i, (p,Elist) in enumerate(indiv['Pconnect'].items()): 
+        pass
+    p = 'P{}'.format(p)
+    ElistName = ['E{}'.format(e) for e in Elist]
+    Elist = ElistName.copy()
+    
+
+    G = G0.subgraph([p] + Tlist).copy()
+    n = p
+    Tconnect = [n]    
+    while G.size()>0 :
+        NodesAdj  = [x[0] for x in G.adj[n].items()]
+        NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+        G.remove_node(n)
+        n = NodesAdj[np.array(NodesDist).argmin()]
+        Tconnect.append(n)
+
+    # print('Tconnect',Tconnect,Tlist, G.size())
+
+    SlotName = ElistName + ['T0']
+    SlotName    
+    L = []
+    for i, e0 in enumerate(Elist):
+        G = G0.subgraph(SlotName).copy()
+        n = e0
+        l = []
+        while n!='T0':
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            l.append(ns)
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+        L.append(l)
+        # print(n,e0,l , path, np.argmax(A == e0, axis=1)) 
+    # passage hotvectors pour clustering => regrouper les lignes avec des E communs
+    X =pd.get_dummies(pd.Series(L).explode()).groupby(level=0).sum().values
+    # print(L)
+    # print(X)
+    kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(X)
+    group = kmeans.labels_
+
+    gr = collections.defaultdict(list)
+    for i, g in enumerate(group):
+        gr[g].append(Elist[i])
+
+    distT = copy.deepcopy(indiv['dist_Connect'])
+    BusTNames = ['P0-T0']
+    for g , Egroup in gr.items():
+        SlotName = Egroup + ['T0']
+        G = G0.subgraph(SlotName).copy()
+        n = "T0"
+        L = [n]
+        path = ["P0-T0"]
+        dist = DictLine['P0-T0']['dist']
+        while G.size()>0 :
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+            L.append(n)
+            #ajouter calcul duritval ect .... 
+            line = '{}-{}'.format(ns,n)
+            path.append(line)
+            BusTNames.append(line)
+            dist += DictLine['{}-{}'.format(ns,n)]['dist']
+            distT['P0-{}'.format(n)] = dist
+        
+        # print(g, Egroup , L    , path)
+    for e in Elist:
+        Clist = indiv['Econnect'][int(e[1:])]
+        for c in Clist:
+            BusTNames.append("{}-C{}".format(e,c))
+    return BusTNames, distT
+
+
+def T_connection_SAVE(algo, indiv):
+    DictLine = algo.DictLine
+    Tlist = algo.Comb['T']
+    G0 = nx.from_pandas_edgelist(algo.dfline, 's', 't', ['dist'])
+    for i, (p,Elist) in enumerate(indiv['Pconnect'].items()): 
+        pass
+    p = 'P{}'.format(p)
+    ElistName = ['E{}'.format(e) for e in Elist]
+    SlotName = ElistName + ['T0']
+    SlotName
+    G = G0.subgraph(SlotName).copy()
+
+    Elist = ElistName.copy()
+    L = []
+    for i, e0 in enumerate(Elist):
+        G = G0.subgraph(SlotName).copy()
+        n = e0
+        l = []
+        while n!='T0':
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            l.append(ns)
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+        L.append(l)
+        # print(n,e0,l , path, np.argmax(A == e0, axis=1)) 
+    X =pd.get_dummies(pd.Series(L).explode()).groupby(level=0).sum().values
+    kmeans = KMeans(n_clusters=2, random_state=0, n_init="auto").fit(X)
+    group = kmeans.labels_
+
+    gr = collections.defaultdict(list)
+    for i, g in enumerate(group):
+        gr[g].append(Elist[i])
+
+    distT = copy.deepcopy(indiv['dist_Connect'])
+    BusTNames = ['P0-T0']
+    for g , Egroup in gr.items():
+        SlotName = Egroup + ['T0']
+        G = G0.subgraph(SlotName).copy()
+        n = "T0"
+        L = [n]
+        path = ["P0-T0"]
+        dist = DictLine['P0-T0']['dist']
+        while G.size()>0 :
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+            L.append(n)
+            #ajouter calcul duritval ect .... 
+            line = '{}-{}'.format(ns,n)
+            path.append(line)
+            BusTNames.append(line)
+            dist += DictLine['{}-{}'.format(ns,n)]['dist']
+            distT['P0-{}'.format(n)] = dist
+        
+        # print(g, Egroup , L    , path)
+    for e in Elist:
+        Clist = indiv['Econnect'][int(e[1:])]
+        for c in Clist:
+            BusTNames.append("{}-C{}".format(e,c))
+    return BusTNames, distT
+
+
+def Tconnection_v3(algo, indiv, pn):
+    p = 'P{}'.format(pn)
+    PtoTConnect = algo.PtoTConnect[p]
+    Tconnect = PtoTConnect
+    TconnectPath = Line_Name([p] + Tconnect)
+    Tlist = Tconnect
+    print(p , Tconnect,TconnectPath)
+
+    G0 = algo.G0.copy()
+
+    p = 'P{}'.format(p)
+    Elist = indiv['Pconnect'][pn]
+    ElistName = ['E{}'.format(e) for e in Elist]
+    Elist = ElistName.copy()
+
+    SlotName = ElistName + Tlist
+    L = []
+    # backward sur chaque E pour connaitre le bus le plus court vers le plus proche T
+    DictTpath = collections.defaultdict(list)
+    Gx = G0.subgraph(SlotName).copy()
+    for i, e0 in enumerate(Elist):
+        G = Gx.copy()
+        n = e0
+        l = []
+        path = []
+        while n[0]!='T':
+            NodesAdj  = [x[0] for x in G.adj[n].items()]
+            NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+            ns = n
+            l.append(ns)
+            G.remove_node(n)
+            n = NodesAdj[np.array(NodesDist).argmin()]
+            # print(e0,ns,n)
+            path.append((ns,n))
+
+        DictTpath[n] = DictTpath[n] + path
+        L.append(l)
+    DictTpath = dict(DictTpath)
+    print(DictTpath, TconnectPath)
+    # print(L)
+    # ------ perf =  1000µs on prend 100µs par copy de graph !!! 
+    Lgroup = []
+
+    BusTNames = []
+    i, j = 0,0
+    for i in range(len(Tconnect)):
+        t = Tconnect[i]         
+        BusTNames.append(TconnectPath[i])
+        if t in DictTpath.keys():
+            path = dict(DictTpath)[t]
+            Gg = nx.Graph(path)
+            Gg.remove_node(t)
+            List_sub_G = nx.connected_components(Gg)
+            for e_list in List_sub_G: 
+                print(t, e_list)       
+                Glist = [t] + list(e_list)
+                G = G0.subgraph(Glist).copy()
+                n = t
+                FinalPath  = [n]  
+                i+=1  
+                while G.size()>0 :
+                    NodesAdj  = [x[0] for x in G.adj[n].items()]
+                    NodesDist = [x[1]['dist'] for x in G.adj[n].items()]
+                    ns = n
+                    G.remove_node(n)
+                    n = NodesAdj[np.array(NodesDist).argmin()]
+                    FinalPath.append(n)
+                    BusTNames.append("{}-{}".format(ns,n))
+                    j+=1
+                for e in e_list:
+                    Clist = indiv['Econnect'][int(e[1:])]
+                    for c in Clist:
+                        BusTNames.append("{}-C{}".format(e,c))
+                FinalPath
+    # print(i,j)
+    # ------ perf =  1200µs -- solution mettre un weight actif on off 
+    return BusTNames
+
+
 
 def load_data_brut_S(file, select = None):
     
