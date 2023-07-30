@@ -17,7 +17,6 @@ from types import SimpleNamespace
 import matplotlib.patches as mpatch
 from collections import Counter
 import xlsxwriter
-from sklearn.cluster import KMeans
 
 #ctrl k ctrl &  //// fold level1 
 
