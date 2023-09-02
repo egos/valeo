@@ -36,7 +36,7 @@ ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
 ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
-ColBase =  ['ID', 'Option','Pconnect' ,'Debit','dist', 'Masse', 'Cout',
+ColBase =  ['ID','Pconnect' ,'Debit','dist', 'Masse', 'Cout',
             'fitness','Epoch', 'Alive','parent','Name_txt','PressionList','DebitList']
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
@@ -122,7 +122,7 @@ if menu == 'Input':
       
 if menu == 'Algo': 
     
-    with st.expander("Capteurs", True):    
+    with st.expander("Capteurs", False):    
             
         Clist = algo.Clist     
         Nclist = list(range(len(Clist)))
@@ -170,7 +170,7 @@ if menu == 'Algo':
         algo.Nvals = dict(zip(Clist, Nvals))
         algo.Nozzlelimits = np.array(Nozzlelimits)   
         
-    with st.expander("Pompe limite & options", True):               
+    with st.expander("Pompe limite & options", False):               
         SplitText = 'si no group = Deactivate'
         c1 ,c2 ,c3 ,c4, c5 = st.columns(5)
         Npa = int(c1.number_input(label= 'Npa (marche pas avec recalculation)',key='Npa' , value= algo.Npa))    
@@ -205,9 +205,8 @@ if menu == 'Algo':
             ListBusPactif.append(x)
         algo.ListBusPactif = ListBusPactif
 
-        Tactived = st.checkbox(label="T connection", value = algo.Tactived )
-        algo.Tactived = Tactived
-                 
+        algo.Tmode = st.selectbox(label="Tmode",options= [False,'Bus','T0','Tx'])
+                         
     with st.expander("indivs params", True):
         c1,c2,c3,c4,c5,c6,c7 = st.columns(7)
         algo.pop   = c1.number_input(label  = 'indiv pop init',value = algo.pop, min_value = 1,  max_value  = 100000,step = 10)
@@ -244,6 +243,7 @@ if menu == 'Algo':
     algo.DebitCalculationNew = c1.checkbox('DebitCalculationNew', value = algo.DebitCalculationNew) 
             
     if c2.button('RESET'):
+        Update_Algo(algo)
         print('Params : RESET')              
         if (NameIndiv != ['']):
             L = []
@@ -331,7 +331,7 @@ if menu == 'Algo':
 
     if len(algo.SaveRun)> 1 : 
         with st.expander("Run Stats", True):
-            c1, c2 = st.columns([0.2,0.8])
+            c1, c2 = st.columns([0.4,0.6])
             dfStat = pd.DataFrame(algo.SaveRun)
             c1.dataframe(dfStat, use_container_width  =True)    
             fig = px.line(dfStat)
@@ -344,19 +344,19 @@ if menu == 'Algo':
             c2.plotly_chart(fig,use_container_width=True) 
     if len(df1)>0 :           
         
-        ColCatList = [ColBase, ColAlgo  , ColSysteme, ColResults,ColBus,ColPompe]
-        ColCatName = ['Base','Algo','Systeme','Results','Bus&EV','Pompe']
-        ColCat = dict(zip(ColCatName,ColCatList))
-        # ColCat = pd.DataFrame.from_dict(ColCat, orient='index')
-        # print(df1.columns)
+        # ColCatList = [ColBase, ColAlgo  , ColSysteme, ColResults,ColBus,ColPompe]
+        # ColCatName = ['Base','Algo','Systeme','Results','Bus&EV','Pompe']
+        # ColCat = dict(zip(ColCatName,ColCatList))
+        # # ColCat = pd.DataFrame.from_dict(ColCat, orient='index')
+        # # print(df1.columns)
         
-        with st.expander("ColSelect", False):
-            c1, c2 = st.columns(2)
-            ColSelect = c1.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns') 
-            # c2.write(ColCat.style.format(na_rep = ' '))
-            for k,v in ColCat.items():
-                c2.write('{} : {}'.format(k,v))
-            
+        # with st.expander("ColSelect", False):
+        #     c1, c2 = st.columns(2)
+        #     ColSelect = c1.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns') 
+        #     # c2.write(ColCat.style.format(na_rep = ' '))
+        #     for k,v in ColCat.items():
+        #         c2.write('{} : {}'.format(k,v))
+        ColSelect = ColBase        
     if len(df1)>0 :
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
@@ -378,7 +378,7 @@ if menu == 'Algo':
         for col in dfx.columns:
             if col not in ColDfVal :
                 dfx[col]= dfx[col].astype(str)
-            if col == 'dist' : dfx[col]= dfx[col].astype(int)  
+            # if col == 'dist' : dfx[col]= dfx[col].astype(int)  
                 # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)   
         with st.expander("Dataframe", True):
             st.dataframe(dfx, use_container_width  =True)                    
@@ -400,28 +400,31 @@ if menu == 'Algo':
                     ListSelectbox = df1.index
                     index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i, label_visibility='collapsed')
                     row = df1.loc[index]
+                    indiv = row.to_dict()
+                    # print(indiv['dist'])
+                    # print(indiv['G'].size('dist'))
                             
-                    ElemsList = ['Clist','Elist','Plist']
-                    Elems = ['C','E','P']
-                    SelectSlot = []
-                    List_EtoC = row.List_EtoC
-                    List_PtoE = row.List_PtoE
-                    for n in range(3):
-                        SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
-                    SelectLine = row.Name
-                    if row.Option == 'Bus' :   SelectLine = row.BusName
-                    if algo.Tactived: 
-                        SelectSlot+=['T{}'.format(t) for t in algo.Comb['T']]
-                        SelectLine = row.BusName                        
-                    col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
-                    fig = new_plot(algo, SelectLine, SelectSlot,hideEtoC)
+                    # ElemsList = ['Clist','Elist','Plist']
+                    # Elems = ['C','E','P']
+                    # SelectSlot = []
+                    # List_EtoC = row.List_EtoC
+                    # List_PtoE = row.List_PtoE
+                    # for n in range(3):
+                    #     SelectSlot+= ['{}{}'.format(Elems[n],i) for i in row[ElemsList[n]]]
+                    # SelectLine = row.Name
+                    # if row.Option == 'Bus' :   SelectLine = row.BusName
+                    # if algo.Tactived: 
+                    #     SelectSlot+=['T{}'.format(t) for t in algo.Comb['T']]
+                    #     SelectLine = row.BusName                        
+                    # col[i].dataframe(row.drop(labels= Col_drop).astype('str'),  use_container_width  =True)                    
+                    # fig = new_plot(algo, SelectLine, SelectSlot,hideEtoC)
+                    fig = new_plot_2(algo,indiv, hideEtoC)
                     col[i].pyplot(fig)
                     ListResultsExport.append({'row':row.drop(labels= Col_drop), 'fig': fig})
    
                 Empty.download_button(label ='📥 download results',
                     data = export_excel_test(algo, ListResultsExport),
                     file_name= 'results.xlsx')  
-
 
 PickleDonwload.download_button(
         label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
