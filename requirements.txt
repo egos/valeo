@@ -1,6 +1,6 @@
-openpyxl==3.0.9
-XlsxWriter== 3.0.1
-plotly==5.4.0
-matplotlib==3.5.2
+openpyxl
+XlsxWriter
+plotly
+matplotlib
 networkx
 streamlit
