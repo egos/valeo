@@ -105,7 +105,7 @@ if menu == 'Input':
     SelectLine = algo.DictLine.keys()
     SelectSlot = algo.DictPos.keys()
     
-    fig = new_plot_2(algo)
+    fig = new_plot(algo, SelectLine, SelectSlot)
     c1, c2 = st.columns([0.7,0.3])  
     c1.table(dfInput.style.format(Format, na_rep=' '))
     c2.pyplot(fig) 
