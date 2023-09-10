@@ -20,7 +20,6 @@ from types import SimpleNamespace
 
 # $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
 st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
-# Comb = 	{'C': [0, 1, 2, 3], 'E': [0, 1, 2], 'P': [0, 1]}
 pop = 10      
 
 #conf file algo keys
@@ -28,16 +27,18 @@ keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
           "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
           'duriteType','duriteVal']
 
-ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
-ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-ColResults = ['PressionList','DebitList','dist_Connect','DetailsMasse','DetailsCout']
-ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
-# col pour astype int
+# ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
+# ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
+# ColResults = ['PressionList','DebitList','dist_Connect','DetailsMasse','DetailsCout']
+# ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
+# # col pour astype int
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
-ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
-ColBase =  ['ID','Pconnect' ,'Debit','dist', 'Masse', 'Cout',
+# ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
+ColBase =  ['ID','Pconnect','Ptypes' ,'Debit','dist', 'Masse', 'Cout',
             'fitness','Epoch', 'Alive','parent','Name_txt','PressionList','DebitList']
+
+
 
 menu = st.sidebar.radio("MENU", ['Input','Algo'], index  = 1)
 today = time.strftime("%Y%m%d-%H:%M:%S")
@@ -66,19 +67,22 @@ PickleDonwload = c2.empty()
 with st.expander('input & pathfinding : 🖱️ press submit for change take effect', True):
 
     with st.form('Map excel sheet name'):
-        c1, c2 = st.columns([0.6,0.4])
+        c1, c2, c3 = st.columns([5,2,2])
         
         uploaded_file = c1.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
         # SheetMapName  = c2.text_input(label = "map excel sheet name", value = algo.SheetMapName) 
-        SheetMapName  = c2.selectbox(label = "map excel sheet name", options = algo.SheetMapNameList) 
-        DistFactor = c2.number_input(label = 'DistFactor ==> metre', value = 0.1)
+        SheetMapName  = c1.selectbox(label = "map excel sheet name", options = algo.SheetMapNameList) 
+        DistFactor = c1.number_input(label = 'DistFactor ==> metre', value = 0.1)
         File = {'SheetMapName' : SheetMapName, 'uploaded_file' : uploaded_file, 'DistFactor' : DistFactor}
         submitted = st.form_submit_button("Submit & Reset")
         if submitted: 
             print('submitted Map')
             # session_state.clear()
             algo = load_data_brut(File)
-            session_state['algo'] = algo       
+            session_state['algo'] = algo
+        fig = new_plot_2(algo, plotedges= False)
+        c3.pyplot(fig) 
+  
     c1 , c2 = st.columns(2)   
     c1.download_button(label='📥 download input data template',
                             data= export_excel(algo, False),
@@ -240,7 +244,7 @@ if menu == 'Algo':
     c0,c1,c2,c3,c4 = st.columns(5) 
     algo.Plot = c0.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
     KeepResults =  c1.checkbox('Keep results') 
-    algo.DebitCalculationNew = c1.checkbox('DebitCalculationNew', value = algo.DebitCalculationNew) 
+    # algo.DebitCalculationNew = c1.checkbox('DebitCalculationNew', value = algo.DebitCalculationNew) 
             
     if c2.button('RESET'):
         Update_Algo(algo)
@@ -329,6 +333,7 @@ if menu == 'Algo':
         session_state['algo'] = algo   
     df1 = algo.df.copy()
 
+    # plot gen run stat
     if len(algo.SaveRun)> 1 : 
         with st.expander("Run Stats", True):
             c1, c2 = st.columns([0.4,0.6])
@@ -342,21 +347,8 @@ if menu == 'Algo':
                             margin=dict(l=10, r=10, t=30, b=10),
                             )
             c2.plotly_chart(fig,use_container_width=True) 
-    if len(df1)>0 :           
-        
-        # ColCatList = [ColBase, ColAlgo  , ColSysteme, ColResults,ColBus,ColPompe]
-        # ColCatName = ['Base','Algo','Systeme','Results','Bus&EV','Pompe']
-        # ColCat = dict(zip(ColCatName,ColCatList))
-        # # ColCat = pd.DataFrame.from_dict(ColCat, orient='index')
-        # # print(df1.columns)
-        
-        # with st.expander("ColSelect", False):
-        #     c1, c2 = st.columns(2)
-        #     ColSelect = c1.multiselect(label = 'Columns',options = df1.columns,default=ColBase, help = 'Columns') 
-        #     # c2.write(ColCat.style.format(na_rep = ' '))
-        #     for k,v in ColCat.items():
-        #         c2.write('{} : {}'.format(k,v))
-        ColSelect = ColBase        
+
+    # df & plot 
     if len(df1)>0 :
     
         df1 = df1.sort_values(['fitness']).reset_index(drop = True)
@@ -371,43 +363,46 @@ if menu == 'Algo':
         st.write(str(DictParams))
 
         # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
-        Col_drop = df1.columns[~df1.columns.isin(ColSelect)].tolist()
-        col1 = df1.columns[~df1.columns.isin(ColBase)]
-        df1 = df1[ColBase + df1.columns[~df1.columns.isin(ColBase)].tolist()]
-        dfx = df1.drop(columns= Col_drop)
+
+        dfx = df1[ColBase].copy()
         for col in dfx.columns:
             if col not in ColDfVal :
+                # print(col)
                 dfx[col]= dfx[col].astype(str)
-            # if col == 'dist' : dfx[col]= dfx[col].astype(int)  
-                # if col == 'dist' : dfx[col]= (100*dfx[col]).astype(int)   
+  
         with st.expander("Dataframe", True):
-            st.dataframe(dfx, use_container_width  =True)                    
-        with st.expander("Figures", True): 
-            hideEtoC = st.checkbox('hideEtoC',False)
-            c1 , c2 = st.columns(2)
-            Empty = c2.empty()
-            if algo.Plot: 
-                ListResultsExport = []
+            dfx.insert(0, "Select", False)
+            dfx.loc[:3,'Select'] = True
+            edited_df = st.data_editor(
+                        dfx,
+                        disabled=dfx.columns.drop(['Select']),
+                        hide_index=True,
+                    )      
+            dfSelect = df1[edited_df.Select].copy()
+            Range = len(dfSelect) 
+
+        with st.expander("Figures", True):
+            ListResultsExport = []
+            if (Range> 0) & algo.Plot:
+                c1 , c2 = st.columns(2)
+                hideEtoC = c1.checkbox('hideEtoC',False)
+                Empty = c2.empty()
                 
-                MinCol = 3 if  len(df1) >= 3 else len(df1)
-                Ncol = c1.number_input(label  = 'indiv number',value = MinCol, min_value = 1,  max_value  = len(df1),step = 1, label_visibility='collapsed')
-                # Ncol = 3 if len(df1) >=3 else len(df1)
-                Ncolmin  = 4 if Ncol < 4 else Ncol
-                col = st.columns(Ncolmin)               
-                        
-                for i in range(Ncol):   
-                    c1, c2 = st.columns([0.3,0.7])   
-                    ListSelectbox = df1.index
-                    index = col[i].selectbox('indiv detail ' + str(i),options = ListSelectbox, index = i, label_visibility='collapsed')
-                    row = df1.loc[index]
-                    indiv = row.to_dict()
+                colSt = st.columns(4) 
+                idxcol = 0 
+                for i in range(Range): 
+                    row = dfSelect.iloc[i]
+                    indiv = row.to_dict()                    
                     fig = new_plot_2(algo,indiv, hideEtoC)
-                    col[i].pyplot(fig)
-                    ListResultsExport.append({'row':row.drop(labels= Col_drop), 'fig': fig})
-   
-                Empty.download_button(label ='📥 download results',
-                    data = export_excel_test(algo, ListResultsExport),
-                    file_name= 'results.xlsx')  
+                    ListResultsExport.append({'row':row, 'fig': fig})
+                    colSt[idxcol].pyplot(fig)
+                    idxcol +=1
+                    if idxcol > 3:
+                        idxcol = 0
+            Empty.download_button(label ='📥 download results',
+                data = export_excel_test(algo, ListResultsExport),
+                file_name= 'results.xlsx')          
+                
 
 PickleDonwload.download_button(
         label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
