@@ -49,7 +49,7 @@ def export_excel(algo, Type):
     dfmap = algo.dfmap
     dfline = algo.dfline.drop(columns= 'path')
     # dfline['Select'] = 'o'
-    dfcapteur = algo.dfcapteur
+    dfcapteur = algo.dfc
     
     output = BytesIO()
 
@@ -127,36 +127,59 @@ def load_data_brut(File , select = None):
     # print(dfline['durite_val'])
     
     Clist = Comb['C']
-    Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
-    Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
-    Nvals  = dict(zip(Clist, Nvals))
-    GroupDict = dict(zip(Clist,[0] * len(Clist)))
+    # Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
+    # Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
+    # Nvals  = dict(zip(Clist, Nvals))
+    # GroupDict = dict(zip(Clist,[0] * len(Clist)))
     GroupDict = np.zeros(len(Clist), dtype= int)
     Group = ~(GroupDict == 0).all()    
     
-    Group0  = [0] * len(Clist)
-    Nature0 = [0] * len(Clist)
-    Limit0  = np.array([2] * len(Clist))
+    # Group0  = [0] * len(Clist)
+    # Nature0 = [0] * len(Clist)
+    # Limit0  = np.array([2] * len(Clist))
+
+    # dfc dfe dfp
     if "slot" in sheet_names:
         dfc = pd.read_excel(uploaded_file, sheet_name= 'slot', index_col=0)
         dfc.limit = dfc.limit.astype(float)
-        # print(dfc)
+        print(dfc)
     else : 
-        dfc = pd.DataFrame()
-        dfc['capteur'] = ['C' + str(c) for c in Clist]
-        dfc['group'] = [0]*len(dfc)
-        dfc['nature'] = ['F']*len(dfc)
-        dfc['limit'] = [2.0]*len(dfc)
-        # print(dfc)
-    Group0 = dfc.group.tolist()        
-    # Ctype = algo.DataCategorie['Nozzle']['Unique']  
-    Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
-    Limit0 = dfc.limit.values
-    # PompeMaxPerSlot = ['P{}'.format(p) for p in Comb['P']]
-    Len = len(Comb['P'])
-    ListPlimSlot = [len(Comb['E'])] * Len
+        dfc = pd.DataFrame()        
+        size = len(CombNodes['C'])
+        dfc['capteur'] = CombNodes['C']
+        dfc['group']   = [0]*size
+        dfc['nature']  = ['F']*size
+        dfc['limit']   = [2.0]*size
 
-    Nozzlelimits = Limit0
+        # EV
+        
+        size = len(CombNodes['E'])
+        dfe = pd.DataFrame()
+        dfe['EVname'] = CombNodes['E']
+        dfe['Nmax'] = [len(CombNodes['C'])]*size
+
+        # POMPE
+        dfp = pd.DataFrame()
+        size = len(CombNodes['P'])
+        # ListPlimSlot = [len(Comb['E'])] * Len
+        dfp = pd.DataFrame()
+        dfp['pompe'] = CombNodes['P']
+        dfp['Nmax'] = [len(CombNodes['E'])]*size
+        dfp['Bus'] = [False]*size
+
+
+    # print(dfc)
+    # Group0 = dfc.group.tolist()        
+    # Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
+    # Limit0 = dfc.limit.values
+    # PompeMaxPerSlot = ['P{}'.format(p) for p in Comb['P']]
+    # Nozzlelimits = Limit0   
+    
+    SlotsDict0 = dict(
+        dfc = dfc,
+        dfe = dfe,
+        dfp = dfp, 
+                )
 
     #-----------GRAPH
     G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','duriteVal','durite','Connect','path'])
@@ -172,7 +195,7 @@ def load_data_brut(File , select = None):
         uploaded_file = uploaded_file,
         DistFactor = DistFactor,
         dfmap = dfmap,
-        Group = Group,
+        Group = True,
         GroupDict = GroupDict,
         gr = {},
         pop = 10,
@@ -180,11 +203,16 @@ def load_data_brut(File , select = None):
         fitnessCompo = np.array([1,0,0]),
         crossover = 20,
         mutation = 20,
-        Nlim = 2.0,   
-        Nozzlelimits = Nozzlelimits,      
+        # Nlim = 2.0,   
+        SlotsDict0 = SlotsDict0,
+        SlotsDict = copy.deepcopy(SlotsDict0),
+        # Nozzlelimits = Nozzlelimits,      
         Plot = False,
+        dfc = dfc,
+        dfp = dfp,
+        dfe = dfe,
         dfline = dfline,
-        DictPos = DictPos,        
+        # DictPos = DictPos,        
         DictLine = DictLine,
         DictEdge = DictEdge,
         epoch = 0,
@@ -193,7 +221,7 @@ def load_data_brut(File , select = None):
         indivs = [],
         df = pd.DataFrame(),
         DataCategorie =  DataCategorie,
-        Tuyau = [4],     
+        # Tuyau = [4],     
         Npa = 10,
         Npc = 4,
         PompesSelect = ['Pa'] * 10 + ['Pc'] * 0,  
@@ -202,23 +230,23 @@ def load_data_brut(File , select = None):
         BusActif = True, 
         Split = 'Deactivate', 
         EV = ['Ea'],    
-        Nozzles  = Nozzles,  
-        Nvals = Nvals,               
+        # Nozzles  = Nozzles,  
+        # Nvals = Nvals,               
         confs = confs,
         Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         CombNodes = CombNodes,
-        dist       = dfline.set_index('ID').dist.astype(float).round(1).to_dict(),
-        duriteType = dfline.set_index('ID').duriteType.to_dict(),
-        duriteVal  = dfline.set_index('ID').duriteVal.to_dict(),
+        # dist       = dfline.set_index('ID').dist.astype(float).round(1).to_dict(),
+        # duriteType = dfline.set_index('ID').duriteType.to_dict(),
+        # duriteVal  = dfline.set_index('ID').duriteVal.to_dict(),
         A0 = A0,
         ListWall = ListWall,
-        Group0 = Group0,
-        Nature0 = Nature0, 
-        Limit0 = Limit0,
-        dfcapteur = dfc,
-        ListPlimSlot = ListPlimSlot,
+        # Group0 = Group0,
+        # Nature0 = Nature0, 
+        # Limit0 = Limit0,
+        # dfcapteur = dfc,
+        # ListPlimSlot = ListPlimSlot,
         SaveRun = [],
         iterations = 1,
         PlotLineWidth = [1,3],
@@ -227,7 +255,8 @@ def load_data_brut(File , select = None):
         G0 = G0,
         PtoTConnect = {},
         Tmode= False,
-        indivMode = None
+        indivMode = None,
+
         )
     algo = SimpleNamespace(**algo)
 
@@ -365,19 +394,20 @@ def Update_Algo(algo):
     #NODES
     DictNodeAttr = {}
     # print(algo.ListBusPactif)
-    for i, n in enumerate(algo.Nozzles):
+    for i, n in enumerate(algo.dfc.nature.values):
         c = 'C{}'.format(i)
         DictNodeAttr[c] = algo.DataCategorie['Nozzle']['Values'][n]
     for i, e in enumerate(algo.CombNodes['E']):
         DictNodeAttr[e] = algo.DataCategorie['EV']['Values']['Ea']
+        # DictNodeAttr[e].update({'Bus' : algo.dfp.Bus.values[i]})
     for i, p in enumerate(algo.CombNodes['P']):
         # DictNodeAttr[p] = algo.DataCategorie['Pompe']['Values']['Pa']
-        DictNodeAttr[p] = {'Bus' : algo.ListBusPactif[i]}
+        DictNodeAttr[p] = {'Bus' : algo.dfp.Bus.values[i]}
     # print(DictNodeAttr)
     nx.set_node_attributes(G0, DictNodeAttr)
 
     #MODE INDIV T Tx T0 Bus & group ... 
-    if np.any(algo.ListBusPactif) :
+    if np.any(algo.dfp.Bus.values) :
         if ('T' in algo.CombNodes) & (algo.Tmode != False):
             mode = algo.Tmode
             if algo.Tmode == 'T0':
@@ -392,7 +422,7 @@ def Update_Algo(algo):
 
     # GROUP passage crappy tant que j'ai pas reform groupdict
     if algo.Group :
-        GroupDict = algo.GroupDict
+        GroupDict = algo.dfc.group.values
     else : 
         GroupDict = [0]*len(algo.Comb['C'])
     # print(GroupDict)
@@ -411,8 +441,9 @@ def Update_Algo(algo):
             gr2.append((g,Clist))
     algo.GroupDict = GroupDict  
     algo.gr = gr2
+    # print(algo.GroupDict, algo.gr)
 
-def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True):
+def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
 
     DictLine = algo.DictEdge
     if indiv is not None: 
@@ -432,36 +463,70 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True):
     ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
     # masked = np.ma.masked_where(A0 <= 1, A0)
     # MinOffset = LenPath*0.03
-    MinOffset = LenPath*0.4
-    MinOffset = MinOffset if MinOffset < 0.4 else 0.4
-    offset = np.linspace(-MinOffset,MinOffset,LenPath)
+    
+    lc = len(algo.CombNodes['C'])
+    lpe = LenPath - lc
+    MinOffset = LenPath*rs
+    # MinOffset = 0.02
+    MinOffset = rs*0.8
+    MinOffset = MinOffset if MinOffset < rs else rs
+    offset  = np.linspace(-MinOffset,MinOffset,lpe)
+    offsetC = np.linspace(-MinOffset,MinOffset,lc)
+    # print(len(offset))
+    i, j  = 0,0
     if plotedges : 
-        for i, (n0 , n1, data) in enumerate(edges):
-            n = offset[i]  
+        for n0 , n1, data in edges:
+            # print(n0 , n1)
+            if  (data['Connect'] == 'EC'): 
+                n = offsetC[j] 
+                j+=1
+            else : 
+                n = offset[i]
+                i+=1
+            # n = offset[i]  
             # n=0
             p = data['path']        
             if  (data['Connect'] == 'EC')  & (not hideEtoC):
                 ax.plot(p[:,1]+n,p[:,0]+n,"white", linewidth=1, zorder=1, linestyle ='-')
-            elif  (n0[0]  == 'E') &  (n1[0]!='C'):
+            elif  (n0[0]  == 'E') & (n1[0]!='C'):
                 ax.plot(p[:,1]+n,p[:,0]+n,'#1FA063', linewidth=2, zorder=1, linestyle ='-')
             elif n0[0]  == 'P' : 
-                ax.plot(p[:,1]+n,p[:,0]+n,PlotColor['P'], linewidth=3, zorder=1, linestyle ='-')
+                ax.plot(p[:,1]+n,p[:,0]+n,PlotColor['P'], linewidth=2, zorder=1, linestyle ='-')
             elif data['Connect']  != 'EC' : 
                 ax.plot(p[:,1]+n,p[:,0]+n,"#3286ff", linewidth=2, zorder=1, linestyle ='-')
-            
+
+
     for x,y in ListWall: 
         ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 1, 1, color='black')) 
     # style = dict(size= 15 * 9 / Ymax, color='black')
     style = dict(size = 8, color='black')
-    rs = 0.4 # taille slot
+    # rs = 0.4 # taille slot
+    nature = algo.dfc.nature.values
     for n, data in nodes: 
         x , y = data['pos']
         slot = n[0]
+        nslot = int(n[1:])
+        if slot =='C' :             
+            text = str(nslot) + ':' + nature[nslot] 
+        else :
+            text = nslot = int(n[1:])
         color = PlotColor[slot]
         ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color=color))
         ax.add_patch(mpatch.Rectangle((y-rs,x-rs), rs*2, rs*2, color='black', fill = None))
-        ax.text(y, x + 0.2,n[1:] , **style,  ha='center', weight='bold') 
-        
+        ax.text(y, x,str(text), **style,  ha='center', weight='bold') 
+        if (indiv is not None): 
+            if (slot == 'E'):
+                N = len(indiv['EtoC'][n])
+                for i in range(N):
+                    size = rs*2/8
+                    circle1 = plt.Circle((y-rs+size+i*size*2,x+rs -size), size, color='k',fill=False)
+                    ax.add_patch(circle1)
+            if (slot == 'P'):
+                N = len(indiv['Ptypes'][n])
+                for i in range(N):
+                    size = rs*2/8
+                    circle1 = plt.Circle((y-rs+size+i*size*2,x+rs -size), size, color='k',fill=False)
+                    ax.add_patch(circle1)        
     return fig
 
 # INDIV
@@ -541,9 +606,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         PtoE['P{}'.format(EtoP[i])].append('E{}'.format(Elist[i]))
 
     PtoE = dict(sorted(PtoE.items()))
-    # print(PtoE)
     Pconnect = dict(sorted(d.items())) 
-    # print(Pconnect)  
     Plist = sorted(Pconnect)
     PtypeCo = dict(sorted(d2.items()))     
     # Pcount  = len(Plist) 
@@ -567,7 +630,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     # edgesEtoC = [tuple(line.split('-')) for line in EtoC]
     Enodes = ['E{}'.format(n) for n in Elist]
     Pnodes = ['P{}'.format(n) for n in Plist]
-    # print(edgesPtoE)
+    print(Enodes, Elist, Plist, Econnect, EtoC)
         
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
     Name_txt = ','.join(Name)   
@@ -577,8 +640,8 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         CtoE = CtoE,
         Econnect = Econnect,
         EtoC = EtoC,
-        Elist =Elist,
-        # Ecount = Ecount,
+        # Elist = Elist,
+        Ecount = Ecount,
         EtoP = EtoP,
         Pconnect = Pconnect,
         PtoE = PtoE,
@@ -587,7 +650,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         # Ptype0 = Ptype,
         Ptype = Ptype,
         PtoC = PtoC,
-        Enodes = Enodes,
+        Enodes = Elist,
         Pnodes = Pnodes,
         PtypeCo = PtypeCo,
         # List_EtoC = List_EtoC,
@@ -676,7 +739,20 @@ def Gen_Objectif_New(algo, indiv):
     for i in range(3): 
         fitness+= indiv[ListFitness[i]] * algo.fitnessCompo[i]  
     indiv['fitness'] = round(fitness,5)
-    indiv['Alive'] = False if  (indiv['PressionList'] < algo.Nozzlelimits).any() else True 
+    indiv['Alive'] = False if  (indiv['PressionList'] < algo.dfc.limit.values).any() else True 
+
+    # Pompe limit 
+    DictPNmax = algo.dfp.set_index('pompe').Nmax.to_dict()
+    cond = True
+    for p, v in indiv['Ptypes'].items():
+        if len(v) > DictPNmax[p] : cond = cond & False 
+
+    DictEVNmax = algo.dfe.set_index('EVname').Nmax.to_dict()
+    cond = True
+    for e,v in indiv['EtoC'].items():
+        if len(v) > DictEVNmax[e] : cond = cond & False 
+    indiv['Alive'] = indiv['Alive'] & cond 
+    # print(len(G.adj['P0']))
     return indiv
 
 def Indiv_reverse(Name,algo, Ptype = None):
@@ -793,7 +869,6 @@ def Indiv_Graph(algo, indiv,mode = None):
                 Tlist = np.unique(np.array(PtoTedges).ravel())
                 Tlist = Tlist[Tlist != p].tolist()
                 Elist = indiv['PtoE'][p]
-                # print()
 
                 TtoEconnect = Cluster_(algo, Tlist, Elist)   
                 # print(TtoEconnect)
@@ -809,7 +884,6 @@ def Indiv_Graph(algo, indiv,mode = None):
                 Elist =  indiv['PtoE'][p]
                 EdgesBus = Bus_(algo, p, Elist)
                 G.add_edges_from(EdgesBus)
-
     
     else : 
         G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
