@@ -57,7 +57,8 @@ def export_excel(algo, Type):
     confs.to_excel(writer, sheet_name='confs')  
     dfmap.to_excel(writer, sheet_name='map') 
     if Type : 
-        dfline.drop(columns = 'duriteVal').to_excel(writer, sheet_name='lines') 
+        # dfline.drop(columns = 'duriteVal')
+        dfline.to_excel(writer, sheet_name='lines') 
         dfcapteur.to_excel(writer, sheet_name='slot') 
 
     writer.close()
@@ -85,16 +86,13 @@ def load_data_brut(File , select = None):
     dfline.index.name = 'ID'
 
     dfline.reset_index(inplace = True)
-    dfline['duriteType'] = 4
+
     if "lines" in sheet_names : 
         print("Load line from excel")
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
-        dfline['duriteType'] = lines_add['duriteType'].copy()
+
         dfline['dist'] = lines_add['dist'].copy()
-        # dfline = dfline[lines_add.Select=='o']
-        # dfline = dfline[]
-    # print(DictLine.keys(),dfline.set_index('ID').to_dict().keys())
-    # dfline['dist'] = dfline.dist.astype('f')
+
     dfline['s'] = dfline.ID.str.split('-').str[0]
     dfline['t'] = dfline.ID.str.split('-').str[1]
     dfline['Connect'] = dfline['s'].str[0] + dfline['t'].str[0]
@@ -113,30 +111,26 @@ def load_data_brut(File , select = None):
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
                     }         
     # print(DataCategorie['Tuyau'])
-    Dict_durite_val = {
-        4 : DataCategorie['Tuyau']['Values'][4]['a'],
-        8 : DataCategorie['Tuyau']['Values'][8]['a']
-    }
-    dfline['duriteVal'] = dfline['duriteType'].map(Dict_durite_val)
+    # Dict_durite_val = {
+    #     4 : DataCategorie['Tuyau']['Values'][4]['a'],
+    #     8 : DataCategorie['Tuyau']['Values'][8]['a']
+    # }
+    # dfline['duriteVal'] = dfline['duriteType'].map(Dict_durite_val)
     dfline['durite'] = 4
     # dfline['Cout'] = algo.DataCategorie['Tuyau']['Values'][4]['Cout']
     dfline['edge'] = dfline.ID.str.split('-').apply(lambda x : (x[0] , x[1]))
+    dfline.columns = dfline.columns.astype(str)
+    
+    
     DictLine = dfline.set_index('ID').to_dict(orient = 'index')   
     DictEdge = dfline.set_index('edge').to_dict(orient = 'index') 
     # print(Dict_durite_val)
     # print(dfline['durite_val'])
     
     Clist = Comb['C']
-    # Nozzles = [DataCategorie['Nozzle']['Unique'][0]] * len(Comb['C'])
-    # Nvals   = [DataCategorie['Nozzle']['Values'][n]['a'] for n in Nozzles]
-    # Nvals  = dict(zip(Clist, Nvals))
-    # GroupDict = dict(zip(Clist,[0] * len(Clist)))
+
     GroupDict = np.zeros(len(Clist), dtype= int)
     Group = ~(GroupDict == 0).all()    
-    
-    # Group0  = [0] * len(Clist)
-    # Nature0 = [0] * len(Clist)
-    # Limit0  = np.array([2] * len(Clist))
 
     # dfc dfe dfp
     if "slot" in sheet_names:
@@ -166,14 +160,6 @@ def load_data_brut(File , select = None):
         dfp['pompe'] = CombNodes['P']
         dfp['Nmax'] = [len(CombNodes['E'])]*size
         dfp['Bus'] = [False]*size
-
-
-    # print(dfc)
-    # Group0 = dfc.group.tolist()        
-    # Nature0 = dfc.nature.map({'F':0,'R':1}).tolist()
-    # Limit0 = dfc.limit.values
-    # PompeMaxPerSlot = ['P{}'.format(p) for p in Comb['P']]
-    # Nozzlelimits = Limit0   
     
     SlotsDict0 = dict(
         dfc = dfc,
@@ -182,7 +168,7 @@ def load_data_brut(File , select = None):
                 )
 
     #-----------GRAPH
-    G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','duriteVal','durite','Connect','path'])
+    G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','durite','Connect','path'])
     print(G0)
     SlotList = CombAll
     DictNodeGraph = {k: {'pos' : DictPos[k]} for k in SlotList}
@@ -205,14 +191,12 @@ def load_data_brut(File , select = None):
         mutation = 20,
         # Nlim = 2.0,   
         SlotsDict0 = SlotsDict0,
-        SlotsDict = copy.deepcopy(SlotsDict0),
-        # Nozzlelimits = Nozzlelimits,      
+        SlotsDict = copy.deepcopy(SlotsDict0),  
         Plot = False,
         dfc = dfc,
         dfp = dfp,
         dfe = dfe,
-        dfline = dfline,
-        # DictPos = DictPos,        
+        dfline = dfline,  
         DictLine = DictLine,
         DictEdge = DictEdge,
         epoch = 0,
@@ -229,29 +213,18 @@ def load_data_brut(File , select = None):
         PompeB = False,
         BusActif = True, 
         Split = 'Deactivate', 
-        EV = ['Ea'],    
-        # Nozzles  = Nozzles,  
-        # Nvals = Nvals,               
+        EV = ['Ea'],               
         confs = confs,
         Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         CombNodes = CombNodes,
-        # dist       = dfline.set_index('ID').dist.astype(float).round(1).to_dict(),
-        # duriteType = dfline.set_index('ID').duriteType.to_dict(),
-        # duriteVal  = dfline.set_index('ID').duriteVal.to_dict(),
         A0 = A0,
         ListWall = ListWall,
-        # Group0 = Group0,
-        # Nature0 = Nature0, 
-        # Limit0 = Limit0,
-        # dfcapteur = dfc,
-        # ListPlimSlot = ListPlimSlot,
         SaveRun = [],
         iterations = 1,
         PlotLineWidth = [1,3],
         ListBusPactif = [False] * len(Comb['P']),
-        # DebitCalculationNew = True,
         G0 = G0,
         PtoTConnect = {},
         Tmode= False,
@@ -262,7 +235,7 @@ def load_data_brut(File , select = None):
 
     return algo
 
-def new_import_T(dfmap, DistFactor):
+def new_import_T_S(dfmap, DistFactor):
     # print('new_import')    
     SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
     slots = ['C','P','E',"T"]    
@@ -290,6 +263,8 @@ def new_import_T(dfmap, DistFactor):
             A0[iy,ix] = SlotColor[slot]*20
             #Comb[v[0]].append(int(v[1:]))
             Comb[v[0]].append(int(n))
+            # Comb[v[0]].append(int(n))
+
             DictPos[v] = (iy,ix)
             
             if slot == "E" : ListBegin.append(v)
@@ -372,6 +347,71 @@ def new_import_T(dfmap, DistFactor):
     
     return DictLine, DictPos, A0,dict(Comb), ListWall  
 
+def new_import_T(dfmap, DistFactor = [2,5]):
+    
+    # print('new_import')    
+    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
+    slots = ['C','P','E',"T"]    
+    
+    A0 = dfmap.values
+    Size = max(A0.shape)
+    print(np.array(DistFactor) , np.array(A0.shape))
+    DistFactor = np.array(DistFactor)/np.array(A0.shape)
+    # DistFactor = Size / DistFactor
+    
+    Comb = collections.defaultdict(list)
+    CombNodes = collections.defaultdict(list)
+    DictPos = {}    
+    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
+        
+    slots = ['C','P','E',"T"]  
+    slotsN = dict(zip(slots,[0,0,0,0]))
+    for s in slots: 
+        CombNodes[s] = []
+
+    for iy, ix in np.ndindex(A0.shape):
+        v = A0[iy, ix]
+        if type(v) == str: 
+            slot = v[0]
+            n = slotsN[slot]
+            slotsN[slot] = n+1
+            v = slot + str(n)
+            A0[iy,ix] = SlotColor[slot]*20
+            Comb[v[0]].append(int(n))
+            CombNodes[slot].append(v)
+            DictPos[v] = (iy,ix)
+
+    CombNodes = dict(CombNodes)
+    print(CombNodes) 
+
+    A0 = A0.astype(float)      
+    Ax = np.ones((Size,Size))
+    Ax[:A0.shape[0],:A0.shape[1]] = A0
+
+    DictLine = {}
+
+    def it_(L):
+        return list(itertools.combinations(L, 2))
+    
+    ListEtoC = [(n1,n2) for n1 in CombNodes['E'] for n2 in CombNodes['C']]
+    ListEdges = it_(CombNodes['P']+CombNodes['T']+CombNodes['E']) + ListEtoC
+    # print(ListEdges)
+
+    for begin, end in ListEdges:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        goal = DictPos[end]        
+        path = Path2(A1.copy() ,start,  goal)
+        path = np.array(path)       
+        # dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
+        dist = (((np.diff(path.T)==0).T)*DistFactor).sum().round(2)
+        ID = begin + '-' + end
+        DictLine[ID] = {'path' : path, 'dist' : dist}
+     
+    
+    return DictLine, DictPos, A0,dict(Comb), ListWall  
+
 def Update_Algo(algo):
     G0 = algo.G0
 
@@ -379,7 +419,8 @@ def Update_Algo(algo):
     for n0, n1  in algo.G0.edges():
         durite = 4
         # G0[n0][n1]['dist'] = G0[n0][n1]['dist']/10
-        dist      = G0[n0][n1]['dist']/10
+        # dist      = G0[n0][n1]['dist']/10
+        dist      = G0[n0][n1]['dist']
         duriteVal = algo.DataCategorie['Tuyau']['Values'][durite]['a']
         dmasse    = algo.DataCategorie['Tuyau']['Values'][durite]['Masse']
         dcout     = algo.DataCategorie['Tuyau']['Values'][durite]['Cout']
@@ -499,7 +540,7 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
     for x,y in ListWall: 
         ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 1, 1, color='black')) 
     # style = dict(size= 15 * 9 / Ymax, color='black')
-    style = dict(size = 8, color='black')
+    style = dict(size = 8*rs/0.4, color='black')
     # rs = 0.4 # taille slot
     nature = algo.dfc.nature.values
     for n, data in nodes: 
@@ -630,7 +671,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     # edgesEtoC = [tuple(line.split('-')) for line in EtoC]
     Enodes = ['E{}'.format(n) for n in Elist]
     Pnodes = ['P{}'.format(n) for n in Plist]
-    print(Enodes, Elist, Plist, Econnect, EtoC)
+    # print(Enodes, Elist, Plist, Econnect, EtoC)
         
     Name = list(itertools.chain.from_iterable(List_EtoC + List_PtoE))
     Name_txt = ','.join(Name)   
@@ -726,7 +767,7 @@ def Gen_Objectif_New(algo, indiv):
     indiv = debit_v3(algo,indiv)
 
     # OBJECTIF ALIVE
-    indiv['dist'] = round(G.size('dist')/10,1)
+    indiv['dist'] = round(G.size('dist'),1)
     indiv['Masse'] = G.size('Masse') + sum(nx.get_node_attributes(G, 'Masse').values())
     indiv['Cout'] = G.size('Cout') + sum(nx.get_node_attributes(G, 'Cout').values())
 
