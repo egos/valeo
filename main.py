@@ -5,7 +5,7 @@ import networkx as nx
 import itertools 
 import math
 import time
-from math import factorial as f
+# from math import factorial as f
 from datetime import timedelta
 from streamlit import session_state
 import matplotlib.pyplot as plt
@@ -27,16 +27,11 @@ keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
           "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
           'duriteType','duriteVal']
 
-# ColSysteme = ['Clist','Name','List_EtoC','List_PtoE','duriteVal']
-# ColAlgo    = ['CtoE','EtoP','Econnect','Elist','Ecount','Pconnect','Plist','Pcount']
-# ColResults = ['PressionList','DebitList','dist_Connect','DetailsMasse','DetailsCout']
-# ColBus     = ['BusName','BusDist', 'Esplit', 'EvSum']
-# # col pour astype int
 ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
             'Masse', 'Cout','Alive','Group']
 # ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
-ColBase =  ['ID','Pconnect','Ptypes' ,'Debit','dist', 'Masse', 'Cout',
-            'fitness','Epoch', 'Alive','parent','Name_txt','PressionList','DebitList']
+ColBase =  ['ID','Pconnect','Ptypes' ,'Econnect','Debit','dist', 'Masse', 'Cout',
+            'fitness','Epoch', 'Alive','parent','PressionList','DebitList','Name_txt']
 
 today = time.strftime("%Y%m%d")
 print(today)
@@ -44,8 +39,9 @@ print(today)
 if 'algo' not in session_state: 
     print(' ')
     print('BEGIN')
-    File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : 0.1}
+    File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : [2,5]}
     algo = load_data_brut(File)
+    Update_Algo(algo)
     session_state['algo'] = algo
 else : 
     print('reload')
@@ -53,25 +49,27 @@ else :
 
 
 title ='input & pathfinding : 🖱️ press submit for change take effect'
-# with st.sidebar:
-#     # c1, c2 = st.columns(2)
-#     uploaded_file = st.file_uploader('LOAD Save.pickle') 
-#     if uploaded_file is not None: 
-#         if 'load' not in session_state:
-#             print(uploaded_file)
-#             SaveAlgo = pickle.load(uploaded_file)
-#             algo = SimpleNamespace(**SaveAlgo)
-#             session_state['algo'] = algo
-#             session_state['load'] = True 
-#     PickleDonwload = st.empty()
+
+# ancien pickdownload
+with st.sidebar:
+    pass
+    #     # c1, c2 = st.columns(2)
+    #     uploaded_file = st.file_uploader('LOAD Save.pickle') 
+    #     if uploaded_file is not None: 
+    #         if 'load' not in session_state:
+    #             print(uploaded_file)
+    #             SaveAlgo = pickle.load(uploaded_file)
+    #             algo = SimpleNamespace(**SaveAlgo)
+    #             session_state['algo'] = algo
+    #             session_state['load'] = True 
+    #     PickleDonwload = st.empty()
 
 with st.sidebar.form('Map excel sheet name'):
     st.subheader(title)
     uploaded_file = st.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
     SheetMapName  = st.selectbox(label = "map excel sheet name", options = algo.SheetMapNameList) 
-    DistFactor = st.number_input(label = 'DistFactor ==> metre', value = 0.1)
-    length  = st.number_input(label = 'length (m)', value = 5.0)
-    Width = st.number_input(label = 'Width(m)', value = 2.0)
+    length     = st.number_input(label = 'length (m)', value = 5.0)
+    Width      = st.number_input(label = 'Width(m)'  , value = 2.0)
     File = {
         'SheetMapName' : SheetMapName,
         'uploaded_file' : uploaded_file,
@@ -93,65 +91,46 @@ with st.expander('Map Config'):
     Col1 = ['a','b','c']
     Format = dict(zip(Col1,["{:.2e}"]))
     Format.update(dict(zip(['Masse','Cout'],["{:.0f}",  "{:,.2f}"])))
-    dfInput = algo.confs.copy()  
-    dfInput['Actif'] = dfInput['Actif'] ==1
 
-    c1, c2 = st.columns([0.7,0.2])  
-
-    c1.data_editor(dfInput.style.format(Format, na_rep=' '),
-                   hide_index= True,
-                   num_rows = "dynamic",
-                   use_container_width=True,
-                   height = int(35.2*(len(dfInput)+2)))
+    dfInput = algo.confs.copy()
+    # dfInput['Actif'] = dfInput['Actif'] ==1
+    algo.confs2 = st.data_editor(
+                # dfInput.style.format(Format, na_rep=' '),
+                algo.confs.copy(),
+                # hide_index= True,
+                num_rows = "dynamic",
+                use_container_width=True,
+                height = int(35.2*(len(dfInput)+2)),
+                )
     
-    rs = c2.slider('map slot size', 0.2, 1.2, step = 0.1, value = 0.4)
-    fig = new_plot_2(algo, plotedges = False , rs= rs)
-    c2.pyplot(fig) 
-    # c1, c2 = st.columns([0.7,0.2]) 
-    c1,c2,c3,c4 = st.columns([3,2,1,1])
-    dfline = pd.DataFrame(algo.dfline.drop(columns = ['path','edge']))
-    # print(dfline.columns)
-    # dfline['path'] = dfline.path.astype(str)
-    # dfslot = pd.DataFrame(algo.DictPos).T
-    # dfslot.columns = ('y','x')    
-    # c1, c2 = st.columns([0.8,0.2])  
-    # c1.table(dfline.style.format(precision = 2))
-    dfStyler  = dfline.style.set_properties(**{'text-align': 'center'})
-    dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'center')])])
-    c1.data_editor(dfStyler,
+    c1,c2,c3,c4 = st.columns([1.5,0.2,1,1])   
+    # dfStyler  = dfline.style.set_properties(**{'text-align': 'center'})
+    # dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'center')])])
+    Coldfline = ["ID","Connect", "dist","durite"]
+    dflineSlice = c1.data_editor(algo.dfline0[Coldfline].copy(),
+                #    column_order = ("ID", "dist","connect","durite"),
                    use_container_width=True,
-                   hide_index= True,) 
+                   disabled = ['ID','Connect'],
+                   hide_index= True
+                   ) 
+    algo.dfline2[Coldfline] = dflineSlice    
 
-# with st.expander("slots properties", False):
-    # c1,c2,c3 = st.columns(3)
-    # with st.expander("Capteurs", True):
-    algo.dfc =  c2.data_editor(
-        algo.SlotsDict0['dfc'].copy(),
-        column_config={
-            "nature" : st.column_config.SelectboxColumn(
-                options = algo.DataCategorie['Nozzle']['Unique'],
-                required = True, 
-                width="small",
-            ),
-        },
-        disabled =['capteur'],
-        hide_index=True,            
-        # height = 300,
-        use_container_width = True,
-        )
-    algo.dfe =c3.data_editor(
-        algo.SlotsDict0['dfe'].copy(),
-        disabled =['EVname'],
-        hide_index=True,
-        use_container_width = True,
-        )
-
-    algo.dfp =c4.data_editor(
-        algo.SlotsDict0['dfp'].copy(),
-        disabled =['pompe'],
-        hide_index=True,
-        use_container_width = True,
-        )
+    #slots
+    for slot , df in algo.SlotsDict0.items():
+        color = algo.PlotColor[slot]
+        df = df.style.format()
+        df = df.set_properties(**{'background-color': color, 'text-align': 'center'}, subset  =['Slot'])
+        edited_df = c3.data_editor(
+            df,
+            disabled =['Slot'],
+            hide_index=True,
+            # use_container_width = True,
+            )
+        algo.SlotsDict[slot] = edited_df
+    
+    rs = c4.slider('map slot size', 0.2, 1.2, step = 0.1, value = 0.4)
+    fig = new_plot_2(algo, plotedges = False , rs= rs)
+    c4.pyplot(fig) 
 
 st.sidebar.download_button(label='📥 download input data template',
                         data= export_excel(algo, False),
@@ -208,7 +187,6 @@ st.write('Group = ',algo.Group, ', Pompe_B = ',algo.PompeB , ', Split = ', algo.
 c0,c1,c2,c3,c4 = st.columns(5) 
 algo.Plot = c0.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
 KeepResults =  c1.checkbox('Keep results') 
-# algo.DebitCalculationNew = c1.checkbox('DebitCalculationNew', value = algo.DebitCalculationNew) 
         
 if c2.button('RESET'):
     Update_Algo(algo)
@@ -316,7 +294,7 @@ if len(algo.SaveRun)> 1 :
 if len(df1)>0 :
 
     df1 = df1.sort_values(['fitness']).reset_index(drop = True)
-    dfline = algo.dfline    
+    dfline = algo.dfline2    
 
     DictParams = dict(
         Pattern = algo.Comb,
@@ -341,6 +319,8 @@ if len(df1)>0 :
                     dfx,
                     disabled=dfx.columns.drop(['Select']),
                     hide_index=True,
+                    use_container_width=True,
+
                 )      
         dfSelect = df1[edited_df.Select].copy()
         Range = len(dfSelect) 
@@ -368,7 +348,21 @@ if len(df1)>0 :
             Empty.download_button(label ='📥 download results',
                 data = export_excel_test(algo, ListResultsExport),
                 file_name= 'results.xlsx')          
-            
+    
+    with st.expander("Graph", True):  
+        if st.toggle('toggle') &  (Range> 0) & algo.Plot:
+            idxcol = 0 
+            # c1, c2 = st.columns(2)
+            for i in range(Range):
+                c1, c2 = st.columns(2) 
+                row = dfSelect.iloc[i]
+                indiv = row.to_dict()
+                G = indiv['G']
+                df = nx.to_pandas_edgelist(G).drop(columns = ['path'])
+                c1.dataframe(df, use_container_width=True, hide_index=True)
+                df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
+                c2.dataframe(df, use_container_width=True)
+                  
 # PickleDonwload.download_button(
 #     label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
 #     data=pickle.dumps(vars(algo)),

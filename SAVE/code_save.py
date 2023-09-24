@@ -1,3 +1,118 @@
+
+def new_import_T_S(dfmap, DistFactor):
+    # print('new_import')    
+    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
+    slots = ['C','P','E',"T"]    
+    
+    A0 = dfmap.values
+    Size = max(A0.shape)
+    # DistFactor = Size / DistFactor
+    
+    Comb = collections.defaultdict(list)
+    DictPos = {}    
+    ListBegin = []
+    ListEnd = []   
+    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
+        
+    slots = ['C','P','E',"T"]  
+    slotsN = dict(zip(slots,[0,0,0,0]))
+
+    for iy, ix in np.ndindex(A0.shape):
+        v = A0[iy, ix]
+        if type(v) == str: 
+            slot = v[0]
+            n = slotsN[slot]
+            slotsN[slot] = n+1
+            v = slot + str(n)
+            A0[iy,ix] = SlotColor[slot]*20
+            #Comb[v[0]].append(int(v[1:]))
+            Comb[v[0]].append(int(n))
+            # Comb[v[0]].append(int(n))
+
+            DictPos[v] = (iy,ix)
+            
+            if slot == "E" : ListBegin.append(v)
+            else : ListEnd.append(v)    
+               
+    A0 = A0.astype(float)      
+    Ax = np.ones((Size,Size))
+    Ax[:A0.shape[0],:A0.shape[1]] = A0
+    ListBegin, ListEnd = sorted(ListBegin), sorted(ListEnd)
+        
+    Path = {}
+    DictLine = {}
+    
+    for begin in ListBegin:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        for end in ListEnd: 
+            goal = DictPos[end]        
+            path = Path2(A1.copy() ,start,  goal)
+            path = np.array(path)       
+            dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
+            
+            if end[0] == 'C' : ID = begin + '-' + end
+            else : ID = end + '-' + begin
+
+            DictLine[ID] = {'path' : path, 'dist' : dist}        
+
+    ListEv =  ['E' + str(n) for n in Comb['E']]
+    it = itertools.permutations(ListEv, 2) # pour avoir les 2 sens sur EtoE
+    # it = itertools.combinations(ListEv, 2)
+    ListEtoE = list(it)
+    ListEtoE
+    # print(ListEv, ListEtoE)
+
+    DictEtoE = {}
+    for begin, end in ListEtoE:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        goal = DictPos[end]        
+        path = Path2(A1.copy() ,start,  goal)
+        path = np.array(path)       
+        dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
+
+        # if end[0] == 'C' : ID = begin + '-' + end
+        # elif begin[0] == 'P' : ID = begin + '-' + end    
+        # else :
+        ID = end + '-' + begin
+        DictEtoE[ID] = {'path' : path, 'dist' : dist}
+    DictLine.update(DictEtoE)
+
+    DictTt = {}
+    if "T" in Comb:
+        List1 =  ['T' + str(n) for n in Comb['T']]
+        List2 =  ['P' + str(n) for n in Comb['P']]
+        ListSlots = List1 + List2
+        it = itertools.permutations(ListSlots, 2) # pour avoir les 2 sens sur EtoE
+        # it = itertools.combinations(ListSlots, 2)
+        ListTt= list(it)
+        # print(ListSlots, ListTt)
+
+        DictTt = {}
+        for begin, end in ListTt:
+            start = DictPos[begin]
+            A = Ax.copy()
+            A1 = Path1(A,start)
+            goal = DictPos[end]        
+            path = Path2(A1.copy() ,start,  goal)
+            path = np.array(path)       
+            dist = (np.abs(np.diff(path.T)).sum() )#.astype(int)
+
+            # if end[0] == 'C' : ID = begin + '-' + end
+            # elif begin[0] == 'P' : ID = begin + '-' + end    
+            # else :
+            ID = end + '-' + begin
+            DictTt[ID] = {'path' : path, 'dist' : dist}
+
+    DictLine.update(DictTt)       
+    
+    return DictLine, DictPos, A0,dict(Comb), ListWall  
+
+
+
 def T_connection(algo, indiv):
     
     DictLine = algo.DictLine

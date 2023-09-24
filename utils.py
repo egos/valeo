@@ -21,7 +21,6 @@ import time
 
 #ctrl k ctrl &  //// fold level1 
 
-
 # DATA
 def export_excel_test(algo, ListResultsExport):
     Col = 0
@@ -45,16 +44,16 @@ def export_excel_test(algo, ListResultsExport):
     return output.getvalue() 
    
 def export_excel(algo, Type):
-    confs = algo.confs
+    confs = algo.confs2
     dfmap = algo.dfmap
-    dfline = algo.dfline.drop(columns= 'path')
+    dfline = algo.dfline2.drop(columns= 'path')
     # dfline['Select'] = 'o'
-    dfcapteur = algo.dfc
+    dfcapteur = algo.SlotsDict['C']
     
     output = BytesIO()
 
     writer = pd.ExcelWriter(output, engine='xlsxwriter')   
-    confs.to_excel(writer, sheet_name='confs')  
+    confs.to_excel(writer, sheet_name='confs',index=False)  
     dfmap.to_excel(writer, sheet_name='map') 
     if Type : 
         # dfline.drop(columns = 'duriteVal')
@@ -72,36 +71,40 @@ def load_data_brut(File , select = None):
     DistFactor = File['DistFactor']
     uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
     # print('algo', uploaded_file)
-    # DistFactor = 1
-    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)
-        
-    DictLine, DictPos, A0,Comb, ListWall = new_import_T(dfmap, DistFactor)
-    CombNodes = {slot :  ["{}{}".format(slot,n) for n in nList] for slot , nList  in  Comb.items()}
-    # print(DictLine)
+
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
-    print(sheet_names)
     SheetMapNameList = [n for n in sheet_names if "map" in n]
+    print(sheet_names)
+
+    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)        
+    DictLine, DictPos, A0, Comb, ListWall = new_import_T(dfmap, DistFactor)
+    CombNodes = {slot :  ["{}{}".format(slot,n) for n in nList] for slot , nList  in  Comb.items()}
+    CombAll = list(DictPos.keys())       
+    
     dfline = pd.DataFrame(DictLine).T
-
     dfline.index.name = 'ID'
-
     dfline.reset_index(inplace = True)
 
     if "lines" in sheet_names : 
         print("Load line from excel")
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
-
         dfline['dist'] = lines_add['dist'].copy()
 
     dfline['s'] = dfline.ID.str.split('-').str[0]
     dfline['t'] = dfline.ID.str.split('-').str[1]
-    dfline['Connect'] = dfline['s'].str[0] + dfline['t'].str[0]
-    # DictLine = dfline.set_index('ID').to_dict(orient = 'index')
-    CombAll = list(DictPos.keys())
+    dfline['Connect'] = dfline['s'].str[0] + dfline['t'].str[0]       
     
-    confs = pd.read_excel(uploaded_file, sheet_name= 'confs', index_col=0)
-    # print(confs)
+    dfline['durite'] = 4
+    dfline['edge'] = dfline.ID.str.split('-').apply(lambda x : (x[0] , x[1]))
+    dfline.columns = dfline.columns.astype(str)    
+    
+    GroupDict = np.zeros(len(CombNodes['C']), dtype= int)
+    Group = ~(GroupDict == 0).all()   
+
     DataCategorie = {}
+    confs = pd.read_excel(uploaded_file, sheet_name= 'confs')
+    confs.reset_index(drop = True, inplace= True) 
+    confs.Name = confs.Name.astype(str)    
     mask = confs['Actif'].notnull()
     df = confs[mask].copy()
     for Categorie in df.Categorie.unique():        
@@ -109,28 +112,7 @@ def load_data_brut(File , select = None):
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    }         
-    # print(DataCategorie['Tuyau'])
-    # Dict_durite_val = {
-    #     4 : DataCategorie['Tuyau']['Values'][4]['a'],
-    #     8 : DataCategorie['Tuyau']['Values'][8]['a']
-    # }
-    # dfline['duriteVal'] = dfline['duriteType'].map(Dict_durite_val)
-    dfline['durite'] = 4
-    # dfline['Cout'] = algo.DataCategorie['Tuyau']['Values'][4]['Cout']
-    dfline['edge'] = dfline.ID.str.split('-').apply(lambda x : (x[0] , x[1]))
-    dfline.columns = dfline.columns.astype(str)
-    
-    
-    DictLine = dfline.set_index('ID').to_dict(orient = 'index')   
-    DictEdge = dfline.set_index('edge').to_dict(orient = 'index') 
-    # print(Dict_durite_val)
-    # print(dfline['durite_val'])
-    
-    Clist = Comb['C']
-
-    GroupDict = np.zeros(len(Clist), dtype= int)
-    Group = ~(GroupDict == 0).all()    
+                    }   
 
     # dfc dfe dfp
     if "slot" in sheet_names:
@@ -140,39 +122,34 @@ def load_data_brut(File , select = None):
     else : 
         dfc = pd.DataFrame()        
         size = len(CombNodes['C'])
-        dfc['capteur'] = CombNodes['C']
+        dfc['Slot'] = CombNodes['C']
         dfc['group']   = [0]*size
         dfc['nature']  = ['F']*size
         dfc['limit']   = [2.0]*size
 
-        # EV
-        
-        size = len(CombNodes['E'])
-        dfe = pd.DataFrame()
-        dfe['EVname'] = CombNodes['E']
-        dfe['Nmax'] = [len(CombNodes['C'])]*size
+    # EV        
+    size = len(CombNodes['E'])
+    dfe = pd.DataFrame()
+    dfe['Slot'] = CombNodes['E']
+    dfe['Nmax'] = [len(CombNodes['C'])]*size
 
-        # POMPE
-        dfp = pd.DataFrame()
-        size = len(CombNodes['P'])
-        # ListPlimSlot = [len(Comb['E'])] * Len
-        dfp = pd.DataFrame()
-        dfp['pompe'] = CombNodes['P']
-        dfp['Nmax'] = [len(CombNodes['E'])]*size
-        dfp['Bus'] = [False]*size
+    # POMPE
+    dfp = pd.DataFrame()
+    size = len(CombNodes['P'])
+    dfp = pd.DataFrame()
+    dfp['Slot'] = CombNodes['P']
+    dfp['Nmax'] = [len(CombNodes['E'])]*size
+    dfp['Bus']  = [False]*size
     
-    SlotsDict0 = dict(
-        dfc = dfc,
-        dfe = dfe,
-        dfp = dfp, 
-                )
+    SlotsDict0 = { 'C' : dfc,'E' : dfe,'P' : dfp}                
+    PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee", 'T': '#C0C0C0'}
 
     #-----------GRAPH
-    G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','durite','Connect','path'])
-    print(G0)
-    SlotList = CombAll
-    DictNodeGraph = {k: {'pos' : DictPos[k]} for k in SlotList}
-    nx.set_node_attributes(G0, DictNodeGraph)
+    # G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','durite','Connect','path'])
+    # print(G0)
+    # SlotList = CombAll
+    # DictNodeGraph = {k: {'pos' : DictPos[k]} for k in SlotList}
+    # nx.set_node_attributes(G0, DictNodeGraph)
 
     algo = dict(
         SheetMapName = SheetMapName,
@@ -180,32 +157,30 @@ def load_data_brut(File , select = None):
         SheetMapNameList = SheetMapNameList,
         uploaded_file = uploaded_file,
         DistFactor = DistFactor,
+        PlotColor = PlotColor,
         dfmap = dfmap,
         Group = True,
         GroupDict = GroupDict,
+        DictPos = DictPos,
         gr = {},
         pop = 10,
         fitness = 'dist',
         fitnessCompo = np.array([1,0,0]),
         crossover = 20,
         mutation = 20,
-        # Nlim = 2.0,   
         SlotsDict0 = SlotsDict0,
         SlotsDict = copy.deepcopy(SlotsDict0),  
         Plot = False,
-        dfc = dfc,
-        dfp = dfp,
-        dfe = dfe,
-        dfline = dfline,  
-        DictLine = DictLine,
-        DictEdge = DictEdge,
+        dfline0 = dfline, 
+        dfline2 = dfline.copy(),  
+        # DictLine = DictLine,
+        # DictEdge = DictEdge,
         epoch = 0,
         Nindiv = 0,
         Nrepro = 0,
         indivs = [],
         df = pd.DataFrame(),
-        DataCategorie =  DataCategorie,
-        # Tuyau = [4],     
+        DataCategorie =  DataCategorie,  
         Npa = 10,
         Npc = 4,
         PompesSelect = ['Pa'] * 10 + ['Pc'] * 0,  
@@ -214,8 +189,9 @@ def load_data_brut(File , select = None):
         BusActif = True, 
         Split = 'Deactivate', 
         EV = ['Ea'],               
-        confs = confs,
-        Clist = Clist,
+        confs  = confs,
+        confs2 = confs.copy(),
+        # Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         CombNodes = CombNodes,
@@ -223,129 +199,16 @@ def load_data_brut(File , select = None):
         ListWall = ListWall,
         SaveRun = [],
         iterations = 1,
-        PlotLineWidth = [1,3],
-        ListBusPactif = [False] * len(Comb['P']),
-        G0 = G0,
+        # PlotLineWidth = [1,3],
+        # ListBusPactif = [False] * len(Comb['P']),
+        G0 = None,
         PtoTConnect = {},
         Tmode= False,
         indivMode = None,
-
         )
     algo = SimpleNamespace(**algo)
 
     return algo
-
-def new_import_T_S(dfmap, DistFactor):
-    # print('new_import')    
-    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
-    slots = ['C','P','E',"T"]    
-    
-    A0 = dfmap.values
-    Size = max(A0.shape)
-    # DistFactor = Size / DistFactor
-    
-    Comb = collections.defaultdict(list)
-    DictPos = {}    
-    ListBegin = []
-    ListEnd = []   
-    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
-        
-    slots = ['C','P','E',"T"]  
-    slotsN = dict(zip(slots,[0,0,0,0]))
-
-    for iy, ix in np.ndindex(A0.shape):
-        v = A0[iy, ix]
-        if type(v) == str: 
-            slot = v[0]
-            n = slotsN[slot]
-            slotsN[slot] = n+1
-            v = slot + str(n)
-            A0[iy,ix] = SlotColor[slot]*20
-            #Comb[v[0]].append(int(v[1:]))
-            Comb[v[0]].append(int(n))
-            # Comb[v[0]].append(int(n))
-
-            DictPos[v] = (iy,ix)
-            
-            if slot == "E" : ListBegin.append(v)
-            else : ListEnd.append(v)    
-               
-    A0 = A0.astype(float)      
-    Ax = np.ones((Size,Size))
-    Ax[:A0.shape[0],:A0.shape[1]] = A0
-    ListBegin, ListEnd = sorted(ListBegin), sorted(ListEnd)
-        
-    Path = {}
-    DictLine = {}
-    
-    for begin in ListBegin:
-        start = DictPos[begin]
-        A = Ax.copy()
-        A1 = Path1(A,start)
-        for end in ListEnd: 
-            goal = DictPos[end]        
-            path = Path2(A1.copy() ,start,  goal)
-            path = np.array(path)       
-            dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
-            
-            if end[0] == 'C' : ID = begin + '-' + end
-            else : ID = end + '-' + begin
-
-            DictLine[ID] = {'path' : path, 'dist' : dist}        
-
-    ListEv =  ['E' + str(n) for n in Comb['E']]
-    it = itertools.permutations(ListEv, 2) # pour avoir les 2 sens sur EtoE
-    # it = itertools.combinations(ListEv, 2)
-    ListEtoE = list(it)
-    ListEtoE
-    # print(ListEv, ListEtoE)
-
-    DictEtoE = {}
-    for begin, end in ListEtoE:
-        start = DictPos[begin]
-        A = Ax.copy()
-        A1 = Path1(A,start)
-        goal = DictPos[end]        
-        path = Path2(A1.copy() ,start,  goal)
-        path = np.array(path)       
-        dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
-
-        # if end[0] == 'C' : ID = begin + '-' + end
-        # elif begin[0] == 'P' : ID = begin + '-' + end    
-        # else :
-        ID = end + '-' + begin
-        DictEtoE[ID] = {'path' : path, 'dist' : dist}
-    DictLine.update(DictEtoE)
-
-    DictTt = {}
-    if "T" in Comb:
-        List1 =  ['T' + str(n) for n in Comb['T']]
-        List2 =  ['P' + str(n) for n in Comb['P']]
-        ListSlots = List1 + List2
-        it = itertools.permutations(ListSlots, 2) # pour avoir les 2 sens sur EtoE
-        # it = itertools.combinations(ListSlots, 2)
-        ListTt= list(it)
-        # print(ListSlots, ListTt)
-
-        DictTt = {}
-        for begin, end in ListTt:
-            start = DictPos[begin]
-            A = Ax.copy()
-            A1 = Path1(A,start)
-            goal = DictPos[end]        
-            path = Path2(A1.copy() ,start,  goal)
-            path = np.array(path)       
-            dist = (np.abs(np.diff(path.T)).sum() )#.astype(int)
-
-            # if end[0] == 'C' : ID = begin + '-' + end
-            # elif begin[0] == 'P' : ID = begin + '-' + end    
-            # else :
-            ID = end + '-' + begin
-            DictTt[ID] = {'path' : path, 'dist' : dist}
-
-    DictLine.update(DictTt)       
-    
-    return DictLine, DictPos, A0,dict(Comb), ListWall  
 
 def new_import_T(dfmap, DistFactor = [2,5]):
     
@@ -407,23 +270,47 @@ def new_import_T(dfmap, DistFactor = [2,5]):
         # dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
         dist = (((np.diff(path.T)==0).T)*DistFactor).sum().round(2)
         ID = begin + '-' + end
-        DictLine[ID] = {'path' : path, 'dist' : dist}
-     
+        DictLine[ID] = {'path' : path, 'dist' : dist}     
     
     return DictLine, DictPos, A0,dict(Comb), ListWall  
 
 def Update_Algo(algo):
-    G0 = algo.G0
+    print('Update_Algo')
+      #-----------GRAPH
+
+    # print(algo.dfline2[['ID','dist']])
+    G0 = nx.from_pandas_edgelist(algo.dfline2, 's', 't', ['dist','durite','Connect','path'])
+    print(G0)
+    SlotList = algo.CombAll
+    DictNodeGraph = {k: {'pos' : algo.DictPos[k]} for k in SlotList}
+    nx.set_node_attributes(G0, DictNodeGraph)
+
+    algo.G0 = G0
+    # G0 = algo.G0
+    
+    DataCategorie = {}
+    confs = algo.confs2
+    mask = confs['Actif'].notnull()
+    df = confs[mask].copy()
+    for Categorie in df.Categorie.unique():        
+        dfx = df[df.Categorie == Categorie]
+        DataCategorie[Categorie] = {
+            'Unique' : dfx.Name.unique().tolist(),
+            'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
+                    }   
+    # print(algo.confs2)
+    # print(DataCategorie['Nozzle'])
+    algo.DataCategorie = DataCategorie
 
     #EDGES
     for n0, n1  in algo.G0.edges():
-        durite = 4
+        durite = '4'
         # G0[n0][n1]['dist'] = G0[n0][n1]['dist']/10
         # dist      = G0[n0][n1]['dist']/10
         dist      = G0[n0][n1]['dist']
-        duriteVal = algo.DataCategorie['Tuyau']['Values'][durite]['a']
-        dmasse    = algo.DataCategorie['Tuyau']['Values'][durite]['Masse']
-        dcout     = algo.DataCategorie['Tuyau']['Values'][durite]['Cout']
+        duriteVal = DataCategorie['Tuyau']['Values'][durite]['a']
+        dmasse    = DataCategorie['Tuyau']['Values'][durite]['Masse']
+        dcout     = DataCategorie['Tuyau']['Values'][durite]['Cout']
         
         attrs = dict(
             coeff = round(duriteVal * dist,5),
@@ -435,20 +322,20 @@ def Update_Algo(algo):
     #NODES
     DictNodeAttr = {}
     # print(algo.ListBusPactif)
-    for i, n in enumerate(algo.dfc.nature.values):
+    for i, n in enumerate(algo.SlotsDict['C'].nature.values):
         c = 'C{}'.format(i)
-        DictNodeAttr[c] = algo.DataCategorie['Nozzle']['Values'][n]
+        DictNodeAttr[c] = DataCategorie['Nozzle']['Values'][n]
     for i, e in enumerate(algo.CombNodes['E']):
-        DictNodeAttr[e] = algo.DataCategorie['EV']['Values']['Ea']
+        DictNodeAttr[e] = DataCategorie['EV']['Values']['Ea']
         # DictNodeAttr[e].update({'Bus' : algo.dfp.Bus.values[i]})
     for i, p in enumerate(algo.CombNodes['P']):
         # DictNodeAttr[p] = algo.DataCategorie['Pompe']['Values']['Pa']
-        DictNodeAttr[p] = {'Bus' : algo.dfp.Bus.values[i]}
+        DictNodeAttr[p] = {'Bus' : algo.SlotsDict['P'].Bus.values[i]}
     # print(DictNodeAttr)
     nx.set_node_attributes(G0, DictNodeAttr)
 
     #MODE INDIV T Tx T0 Bus & group ... 
-    if np.any(algo.dfp.Bus.values) :
+    if np.any(algo.SlotsDict['P'].Bus.values) :
         if ('T' in algo.CombNodes) & (algo.Tmode != False):
             mode = algo.Tmode
             if algo.Tmode == 'T0':
@@ -463,7 +350,7 @@ def Update_Algo(algo):
 
     # GROUP passage crappy tant que j'ai pas reform groupdict
     if algo.Group :
-        GroupDict = algo.dfc.group.values
+        GroupDict = algo.SlotsDict['C'].group.values
     else : 
         GroupDict = [0]*len(algo.Comb['C'])
     # print(GroupDict)
@@ -486,7 +373,7 @@ def Update_Algo(algo):
 
 def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
 
-    DictLine = algo.DictEdge
+    # DictLine = algo.DictEdge
     if indiv is not None: 
         G = indiv['G'].copy() 
     else :
@@ -497,9 +384,22 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
     ListWall = algo.ListWall
     A0 = algo.A0
     Ymax , Xmax = A0.shape
-    # print(A0.shape)
+
     PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee", 'T': '#C0C0C0'}
     fig, ax = plt.subplots(figsize = (8,8))
+
+    # proportionnalité
+    width, length = algo.DistFactor
+    N = int(width//0.5)
+    ticks2 = np.arange(0,(N+1)*0.5,0.5)
+    ticks1 = ticks2*(A0.shape[1]-1)/width
+    ax.set_xticks(ticks1, ticks2)
+    N = int(length//0.5)
+    ticks2 = np.arange(0,(N+1)*0.5,0.5)
+    ticks1 = ticks2*(A0.shape[0]-1)/length
+    ax.set_yticks(ticks1, ticks2[::-1])
+
+
     ax.imshow(np.zeros(A0.shape), cmap='gray',vmin=0,vmax=1)  
     ax.add_patch(mpatch.Rectangle((0,0), Xmax-1, Ymax-1, color='#d8d8d8'))
     # masked = np.ma.masked_where(A0 <= 1, A0)
@@ -542,7 +442,7 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
     # style = dict(size= 15 * 9 / Ymax, color='black')
     style = dict(size = 8*rs/0.4, color='black')
     # rs = 0.4 # taille slot
-    nature = algo.dfc.nature.values
+    nature = algo.SlotsDict['C'].nature.values
     for n, data in nodes: 
         x , y = data['pos']
         slot = n[0]
@@ -573,7 +473,7 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
 # INDIV
 def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None): 
     # print(algo.Pmax)
-    dfline = algo.dfline
+    dfline = algo.dfline2
     D = algo.Comb    
     Clist = D['C']
     Ccount = len(D['C'])
@@ -771,8 +671,8 @@ def Gen_Objectif_New(algo, indiv):
     indiv['Masse'] = G.size('Masse') + sum(nx.get_node_attributes(G, 'Masse').values())
     indiv['Cout'] = G.size('Cout') + sum(nx.get_node_attributes(G, 'Cout').values())
 
-    indiv['PressionList'] = np.array(list(nx.get_node_attributes(G, "Pi").values()))
-    indiv['DebitList'] = np.array(list(nx.get_node_attributes(G, "Qi").values()))
+    indiv['PressionList'] = np.array(list(nx.get_node_attributes(G, "Pi").values())).round(1)
+    indiv['DebitList'] = np.array(list(nx.get_node_attributes(G, "Qi").values())).round(1)
     indiv['Debit'] = round(indiv['DebitList'].sum(),1)
 
     ListFitness = ['dist','Masse','Cout']
@@ -780,15 +680,15 @@ def Gen_Objectif_New(algo, indiv):
     for i in range(3): 
         fitness+= indiv[ListFitness[i]] * algo.fitnessCompo[i]  
     indiv['fitness'] = round(fitness,5)
-    indiv['Alive'] = False if  (indiv['PressionList'] < algo.dfc.limit.values).any() else True 
+    indiv['Alive'] = False if  (indiv['PressionList'] < algo.SlotsDict['C'].limit.values).any() else True 
 
     # Pompe limit 
-    DictPNmax = algo.dfp.set_index('pompe').Nmax.to_dict()
+    DictPNmax = algo.SlotsDict['P'].set_index('Slot').Nmax.to_dict()
     cond = True
     for p, v in indiv['Ptypes'].items():
         if len(v) > DictPNmax[p] : cond = cond & False 
 
-    DictEVNmax = algo.dfe.set_index('EVname').Nmax.to_dict()
+    DictEVNmax = algo.SlotsDict['E'].set_index('Slot').Nmax.to_dict()
     cond = True
     for e,v in indiv['EtoC'].items():
         if len(v) > DictEVNmax[e] : cond = cond & False 
@@ -798,7 +698,7 @@ def Gen_Objectif_New(algo, indiv):
 
 def Indiv_reverse(Name,algo, Ptype = None):
     NameList = Name.split(',')
-    Clist = algo.Clist
+    Clist = algo.CombNodes['C']
     CtoE = {}
     EtoP = {}
     for n in NameList:
@@ -1112,7 +1012,7 @@ def Path2(A,start,goal):
 
 def Multiconnect_(algo,start, nodes):
     G0 = algo.G0
-    d = algo.dfline.set_index('ID').dist.to_dict()
+    d = algo.dfline2.set_index('ID').dist.to_dict()
     idx = np.argmin([G0[start][n]['dist'] for n in nodes])
     firstnode = nodes[idx]
     G = algo.G0.subgraph(nodes).copy()
