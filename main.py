@@ -163,13 +163,13 @@ with st.expander("indivs params", True):
     SplitText = 'si no group = Deactivate'
     Npa = int(c3.number_input(label= 'Npa',key='Npa' , value= algo.Npa))    
     Npc = int(c3.number_input(label= 'Npc',key='Npc' , value= algo.Npc))  
-    PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
-    ListSplitName = ['Deactivate','Auto','Forced']
-    Split = c4.toggle('Split')
+    # PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
+    # ListSplitName = ['Deactivate','Auto','Forced']
+    # Split = c4.toggle('Split')
     BusActif = True     
     # algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
     # if not algo.Group : Split = 'Deactivate'
-    algo.Split  = Split      
+    # algo.Split  = Split      
     algo.Npa = Npa
     algo.Npc = Npc
     algo.Pmax = Npa + Npc
