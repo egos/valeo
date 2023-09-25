@@ -182,7 +182,7 @@ def load_data_brut(File , select = None):
         df = pd.DataFrame(),
         DataCategorie =  DataCategorie,  
         Npa = 10,
-        Npc = 4,
+        Npc = 0,
         PompesSelect = ['Pa'] * 10 + ['Pc'] * 0,  
         Pmax = 10,
         PompeB = False,
@@ -199,8 +199,6 @@ def load_data_brut(File , select = None):
         ListWall = ListWall,
         SaveRun = [],
         iterations = 1,
-        # PlotLineWidth = [1,3],
-        # ListBusPactif = [False] * len(Comb['P']),
         G0 = None,
         PtoTConnect = {},
         Tmode= False,
@@ -457,11 +455,14 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
         ax.text(y, x,str(text), **style,  ha='center', weight='bold') 
         if (indiv is not None): 
             if (slot == 'E'):
-                N = len(indiv['EtoC'][n])
-                for i in range(N):
-                    size = rs*2/8
-                    circle1 = plt.Circle((y-rs+size+i*size*2,x+rs -size), size, color='k',fill=False)
-                    ax.add_patch(circle1)
+                if len(G.adj[n].items()) > 1:
+                    N = len(indiv['EtoC'][n])
+                    for i in range(N):
+                        size = rs*2/8
+                        circle1 = plt.Circle((y-rs+size+i*size*2,x+rs -size), size, color='k',fill=False)
+                        ax.add_patch(circle1)
+                else :
+                    ax.plot((y-rs, y+rs),(x-rs, x+rs),'k', linewidth=1, zorder=1, linestyle ='-')
             if (slot == 'P'):
                 N = len(indiv['Ptypes'][n])
                 for i in range(N):
@@ -645,8 +646,9 @@ def Gen_Objectif_New(algo, indiv):
                 Cout += algo.DataCategorie['Pompe']['Values'][pt]['Cout']
             
                 Ncapteurs = len(EtoC[e])
-                G.nodes[e]['Masse'] = algo.G0.nodes['E0']['Masse'] * Ncapteurs
-                G.nodes[e]['Cout']  = algo.G0.nodes['E0']['Cout']  * Ncapteurs
+                if Ncapteurs==1: Ncapteurs=0
+                G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
+                G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
         G.nodes[p]['Masse'] = Masse
         G.nodes[p]['Cout']  = Cout
     
@@ -800,7 +802,10 @@ def Indiv_Graph(algo, indiv,mode = None):
         Tlist = algo.CombNodes['T']
         G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
         PtoTConnect = algo.PtoTConnect
-        for p, PtoTedges in PtoTConnect.items(): 
+        for p in indiv['PtoE']:
+            PtoTedges = PtoTConnect[p]
+        # for p, PtoTedges in PtoTConnect.items(): 
+            # print(indiv['PtoE'], p, PtoTedges)
             if algo.G0.nodes()[p]['Bus']:
                 Pedges = list(G.edges(p))
                 G.remove_edges_from(Pedges)
@@ -904,7 +909,11 @@ def debit_v3(algo,indiv):
                 CoeffEtoC = np.array([G[e][c]['coeff'] for c in Clist])
                 CoeffC    = np.array([G.nodes[c]['a'] for c in Clist])
                 CcList.append(CoeffC)
-                CoeffE    = G.nodes[e]['a']
+
+                if len(G.adj[e].items()) > 1: 
+                    CoeffE    = G.nodes[e]['a']
+                else :
+                    CoeffE = 0
                 
                 F = F - coef_PtoE*(Q0-Qx)**2
                 F[F<0] = 0              
