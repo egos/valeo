@@ -165,17 +165,17 @@ with st.expander("indivs params", True):
     Npc = int(c3.number_input(label= 'Npc',key='Npc' , value= algo.Npc))  
     # PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
     # ListSplitName = ['Deactivate','Auto','Forced']
-    # Split = c4.toggle('Split')
+    Split = c4.toggle('Split')
     BusActif = True     
     # algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
     # if not algo.Group : Split = 'Deactivate'
-    # algo.Split  = Split      
+    algo.Split  = Split      
     algo.Npa = Npa
     algo.Npc = Npc
     algo.Pmax = Npa + Npc
     algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
 
-    algo.Tmode = c4.selectbox(label="Tmode",options= [False,'Bus','T0','Tx'])                     
+    algo.Tmode = c4.radio(label="Tmode",options= [False,'Bus','T0','Tx'])                     
 
     default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
     default = ''
@@ -304,7 +304,7 @@ if len(df1)>0 :
         epoch = algo.epoch,        )
     st.write(str(DictParams))
 
-    # st.metric(label="create", value=algo.Nrepro, delta=-0.5,)
+    st.metric(label="create", value=True)
 
     dfx = df1[ColBase].copy()
     for col in dfx.columns:
@@ -339,6 +339,11 @@ if len(df1)>0 :
                 row = dfSelect.iloc[i]
                 indiv = row.to_dict()                    
                 fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
+                row.name = row.ID
+                # row.index.name = 'ID'
+                colSt[idxcol].table(row[['Ptypes','dist','Debit','Cout']].astype(str))
+
+
                 ListResultsExport.append({'row':row, 'fig': fig})
                 colSt[idxcol].pyplot(fig)
                 idxcol +=1
@@ -354,12 +359,17 @@ if len(df1)>0 :
             idxcol = 0 
             # c1, c2 = st.columns(2)
             for i in range(Range):
-                c1, c2 = st.columns(2) 
+                 
                 row = dfSelect.iloc[i]
                 indiv = row.to_dict()
                 G = indiv['G']
+                st.write(row.Name_txt)
+                c1, c2 = st.columns(2)
+                
+                # edges
                 df = nx.to_pandas_edgelist(G).drop(columns = ['path'])
                 c1.dataframe(df, use_container_width=True, hide_index=True)
+                # nodes
                 df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
                 c2.dataframe(df, use_container_width=True)
                   

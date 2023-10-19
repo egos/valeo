@@ -626,10 +626,12 @@ def Gen_Objectif_New(algo, indiv):
 
     # attribution des ptypes si Bus = random 1 pt parmi ptlist dans first edges from p
     # masse cout pour nodes EV et P 
+    print(nx.get_node_attributes(G, 'Masse'))
     for p, Elist in indiv['PtoE'].items():
         ptList = indiv['PtypeCo'][int(p[1:])]
         p , ptList
         actif = algo.G0.nodes[p]['Bus']
+        print(actif)
         Masse , Cout = 0, 0
         if actif:
             pt = np.random.choice(ptList)
@@ -664,15 +666,18 @@ def Gen_Objectif_New(algo, indiv):
     # nx.get_node_attributes(G, 'Masse')
     # nx.get_node_attributes(G, 'Cout')
 
+    #SPLIT
+
     # DEBIT
     indiv['IndivLine2'] = IndivLine_(algo,indiv)
+    # print(indiv['IndivLine2'])
     indiv = debit_v3(algo,indiv)
 
     # OBJECTIF ALIVE
     indiv['dist'] = round(G.size('dist'),1)
     indiv['Masse'] = G.size('Masse') + sum(nx.get_node_attributes(G, 'Masse').values())
     indiv['Cout'] = G.size('Cout') + sum(nx.get_node_attributes(G, 'Cout').values())
-
+    indiv['Cout'] = round(indiv['Cout'],1)
     indiv['PressionList'] = np.array(list(nx.get_node_attributes(G, "Pi").values())).round(1)
     indiv['DebitList'] = np.array(list(nx.get_node_attributes(G, "Qi").values())).round(1)
     indiv['Debit'] = round(indiv['DebitList'].sum(),1)
@@ -884,6 +889,21 @@ def IndivLine_(algo, indiv):
                     Pline.append((g,pt, dict(d)))
                 
         indivline[p] = Pline
+    # print(pd.Series(indiv)) 
+    # print(indivline) 
+    
+    # nEV = 1
+    # if algo.Split: 
+    #     for p in indiv['Pnodes']:
+    #         Pline = []
+    #         pt= 'Pa'
+    #         for e in indiv['PtoE'][p]:
+    #             d =  {e: indiv['EtoC'][e]}
+    #             Pline.append((nEV,pt, d))
+    #             nEV+=1
+    #         indivline[p] = Pline    
+    # print(indivline)    
+
     return indivline
 
 def debit_v3(algo,indiv):
@@ -904,13 +924,15 @@ def debit_v3(algo,indiv):
             Start = p
             CListTotal = []
             for e, Clist in Edict.items():
-                # print(p,g,Start,e)
+                # print(p,g,Start,e, Clist)
                 coef_PtoE = nx.shortest_path_length(G,Start,e,'coeff')
                 CoeffEtoC = np.array([G[e][c]['coeff'] for c in Clist])
                 CoeffC    = np.array([G.nodes[c]['a'] for c in Clist])
                 CcList.append(CoeffC)
 
-                if len(G.adj[e].items()) > 1: 
+                # direct connexion P to C 
+                if (len(G.adj[e].items()) > 1) & (algo.Split == False): 
+                # if (len(G.adj[e].items()) > 1): 
                     CoeffE    = G.nodes[e]['a']
                 else :
                     CoeffE = 0
