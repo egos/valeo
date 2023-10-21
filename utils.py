@@ -266,8 +266,8 @@ def load_data_brut(File , select = None):
         G0 = None,
         PtoTConnect = {},
         Tmode= False,
-        indivMode = None,
-        ErrorTxt = '', 
+        # indivMode = False,
+        ErrorParams = False, 
         NameEV = 'Ea',
         NameReservoir = 'Ra',
         )
@@ -303,9 +303,7 @@ def Update_Algo(algo):
     if np.any(algo.SlotsDict['P'].Bus.values) & (algo.Tmode != False):
         if ('T' in algo.CombNodes) & (algo.Tmode == 'Tx'):
             mode = algo.Tmode
-            # if algo.Tmode == 'T0':
-            #     algo.PtoTConnect = PToT_path_2(algo)
-            # algo.Group = False
+            # if algo.Tmode == 'T0':            #     algo.PtoTConnect = PToT_path_2(algo)
         else : 
             mode = 'Bus'
         algo.BusActif = True
@@ -313,8 +311,8 @@ def Update_Algo(algo):
         mode = False
         algo.SlotsDict['P'].Bus = False
         algo.BusActif = False
-    algo.indivMode = mode  
-    print(('T' in algo.CombNodes) & (algo.Tmode != False))
+    # algo.indivMode = mode  
+    # print(('T' in algo.CombNodes) & (algo.Tmode != False))
         
     # print(algo.confs2)
     # print(DataCategorie['Nozzle'])
@@ -339,7 +337,6 @@ def Update_Algo(algo):
 
     #NODES
     DictNodeAttr = {}
-    # print(algo.ListBusPactif)
     for i, n in enumerate(algo.SlotsDict['C'].nature.values):
         c = 'C{}'.format(i)
         DictNodeAttr[c] = DataCategorie['Nozzle']['Values'][n]
@@ -347,27 +344,15 @@ def Update_Algo(algo):
         DictNodeAttr[e] = DataCategorie['EV']['Values'][algo.NameEV]
         # DictNodeAttr[e].update({'Bus' : algo.dfp.Bus.values[i]})
     for i, p in enumerate(algo.CombNodes['P']):
-        # DictNodeAttr[p] = algo.DataCategorie['Pompe']['Values']['Pa']
         DictNodeAttr[p] = {'Bus' : algo.SlotsDict['P'].Bus.values[i]}
-    # print(DictNodeAttr)
-    nx.set_node_attributes(G0, DictNodeAttr)
-
-    
+    nx.set_node_attributes(G0, DictNodeAttr)   
     
     GroupDict = algo.SlotsDict['C'].group.values
+    algo.Group = len(np.unique(GroupDict)) > 1    
 
-    algo.ErrorTrigger = '' 
-    algo.Group = len(np.unique(GroupDict)) > 1
-
-    algo.ErrorTxt = '' 
     cond1 = algo.Group & (algo.PompeB | (algo.Tmode == 'Tx')) 
     cond2 = (not algo.Group) & (algo.Split)
-    if cond1 | cond2:
-        algo.ErrorTxt = 'group & pompe Pb split & Tmode problem {} , {}'.format(cond1,cond2)
-
-    
-    print(GroupDict, algo.Group, algo.ErrorTxt)
-    # else : 
+    algo.ErrorParams = cond1 | cond2
 
     # if algo.Group :
     #     GroupDict = algo.SlotsDict['C'].group.values
@@ -375,6 +360,7 @@ def Update_Algo(algo):
     #     GroupDict = [0]*len(algo.Comb['C'])
     # # print(GroupDict)
     
+    # TODO explain !!!! 
     gr = collections.defaultdict(list)
     for i, g in enumerate(GroupDict):
         gr[g].append('C{}'.format(i))
@@ -642,7 +628,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
 
 def Gen_Objectif_New(algo, indiv):
 
-    indiv = Indiv_Graph(algo, indiv, mode = algo.indivMode)
+    indiv = Indiv_Graph(algo, indiv, mode = algo.Tmode)
     G = indiv['G']
     EtoC = indiv['EtoC']
 
@@ -817,7 +803,7 @@ def Indiv_Graph(algo, indiv,mode = None):
     
     Cnodes = algo.CombNodes['C']
     Pnodes = indiv['Pnodes']    
-
+    mode = algo.Tmode
     #G creation
     if mode == 'Tx':
         Tlist = algo.CombNodes['T']
@@ -846,10 +832,7 @@ def Indiv_Graph(algo, indiv,mode = None):
                 ListEdges += [(p,e) for e in Elist]
 
         G = algo.G0.edge_subgraph(ListEdges).copy() 
-
-        
-
-
+    
     
     elif mode == 'Bus': 
         G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy()

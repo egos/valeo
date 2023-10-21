@@ -215,9 +215,9 @@ if c2.button('RESET'):
         Pompe_B = algo.PompeB,
         Split =   algo.Split,
         PbusActif =  algo.BusActif,
-        BusMode =  algo.indivMode,
+        BusMode =  algo.Tmode,
             ) 
-    if algo.ErrorTxt != '':
+    if algo.ErrorParams:
         st.error('error please check parameters : ' + str(DictAlgo)  )
     else : 
         st.success('no conflicts for parameters : ' + str(DictAlgo))
