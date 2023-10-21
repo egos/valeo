@@ -1,3 +1,27 @@
+elif mode == 'T0':
+    Tlist = algo.CombNodes['T']
+    G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
+    PtoTConnect = algo.PtoTConnect
+    for p in indiv['PtoE']:
+        PtoTedges = PtoTConnect[p]
+    # for p, PtoTedges in PtoTConnect.items(): 
+        # print(indiv['PtoE'], p, PtoTedges)
+        if algo.G0.nodes()[p]['Bus']:
+            Pedges = list(G.edges(p))
+            G.remove_edges_from(Pedges)
+            PtoTedges  = PtoTConnect[p]
+            G.add_edges_from(PtoTedges)        
+
+            Tlist = np.unique(np.array(PtoTedges).ravel())
+            Tlist = Tlist[Tlist != p].tolist()
+            Elist = indiv['PtoE'][p]
+
+            TtoEconnect = Cluster_(algo, Tlist, Elist)   
+            # print(TtoEconnect)
+            for t, Elist in TtoEconnect.items():
+                G.add_edges_from(Bus_(algo, t, Elist))
+
+
 
 def new_import_T_S(dfmap, DistFactor):
     # print('new_import')    

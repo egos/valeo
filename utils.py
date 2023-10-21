@@ -64,6 +64,70 @@ def export_excel(algo, Type):
     processed_data = output.getvalue()
     return processed_data
 
+def new_import_T(dfmap, DistFactor = [2,5]):
+    
+    # print('new_import')    
+    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
+    slots = ['C','P','E',"T"]    
+    
+    A0 = dfmap.values
+    Size = max(A0.shape)
+    print(np.array(DistFactor) , np.array(A0.shape))
+    DistFactor = np.array(DistFactor)/np.array(A0.shape)
+    # DistFactor = Size / DistFactor
+    
+    Comb = collections.defaultdict(list)
+    CombNodes = collections.defaultdict(list)
+    DictPos = {}    
+    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
+        
+    slots = ['C','P','E',"T"]  
+    slotsN = dict(zip(slots,[0,0,0,0]))
+    for s in slots: 
+        CombNodes[s] = []
+
+    for iy, ix in np.ndindex(A0.shape):
+        v = A0[iy, ix]
+        if type(v) == str: 
+            slot = v[0]
+            n = slotsN[slot]
+            slotsN[slot] = n+1
+            v = slot + str(n)
+            A0[iy,ix] = SlotColor[slot]*20
+            Comb[v[0]].append(int(n))
+            CombNodes[slot].append(v)
+            DictPos[v] = (iy,ix)
+
+    CombNodes = dict(CombNodes)
+    print(CombNodes) 
+
+    A0 = A0.astype(float)      
+    Ax = np.ones((Size,Size))
+    Ax[:A0.shape[0],:A0.shape[1]] = A0
+
+    DictLine = {}
+
+    def it_(L):
+        return list(itertools.combinations(L, 2))
+    
+    ListEtoC = [(n1,n2) for n1 in CombNodes['E'] for n2 in CombNodes['C']]
+    ListEdges = it_(CombNodes['P']+CombNodes['T']+CombNodes['E']) + ListEtoC
+    # print(ListEdges)
+
+    for begin, end in ListEdges:
+        start = DictPos[begin]
+        A = Ax.copy()
+        A1 = Path1(A,start)
+        goal = DictPos[end]        
+        path = Path2(A1.copy() ,start,  goal)
+        path = np.array(path)       
+        # dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
+        dist = (((np.diff(path.T)==0).T)*DistFactor).sum().round(2)
+        ID = begin + '-' + end
+        DictLine[ID] = {'path' : path, 'dist' : dist}     
+    
+    return DictLine, DictPos, A0,dict(Comb), ListWall  
+
 def load_data_brut(File , select = None):
     print('Init algo namespace')
     uploaded_file = File['uploaded_file']
@@ -187,7 +251,7 @@ def load_data_brut(File , select = None):
         Pmax = 10,
         PompeB = False,
         BusActif = True, 
-        Split = 'Deactivate', 
+        Split = True, 
         EV = ['Ea'],               
         confs  = confs,
         confs2 = confs.copy(),
@@ -203,74 +267,13 @@ def load_data_brut(File , select = None):
         PtoTConnect = {},
         Tmode= False,
         indivMode = None,
+        ErrorTxt = '', 
+        NameEV = 'Ea',
+        NameReservoir = 'Ra',
         )
     algo = SimpleNamespace(**algo)
 
     return algo
-
-def new_import_T(dfmap, DistFactor = [2,5]):
-    
-    # print('new_import')    
-    SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
-    slots = ['C','P','E',"T"]    
-    
-    A0 = dfmap.values
-    Size = max(A0.shape)
-    print(np.array(DistFactor) , np.array(A0.shape))
-    DistFactor = np.array(DistFactor)/np.array(A0.shape)
-    # DistFactor = Size / DistFactor
-    
-    Comb = collections.defaultdict(list)
-    CombNodes = collections.defaultdict(list)
-    DictPos = {}    
-    ListWall = (np.argwhere(A0[1:-1,1:-1] == 1)+1).tolist()
-        
-    slots = ['C','P','E',"T"]  
-    slotsN = dict(zip(slots,[0,0,0,0]))
-    for s in slots: 
-        CombNodes[s] = []
-
-    for iy, ix in np.ndindex(A0.shape):
-        v = A0[iy, ix]
-        if type(v) == str: 
-            slot = v[0]
-            n = slotsN[slot]
-            slotsN[slot] = n+1
-            v = slot + str(n)
-            A0[iy,ix] = SlotColor[slot]*20
-            Comb[v[0]].append(int(n))
-            CombNodes[slot].append(v)
-            DictPos[v] = (iy,ix)
-
-    CombNodes = dict(CombNodes)
-    print(CombNodes) 
-
-    A0 = A0.astype(float)      
-    Ax = np.ones((Size,Size))
-    Ax[:A0.shape[0],:A0.shape[1]] = A0
-
-    DictLine = {}
-
-    def it_(L):
-        return list(itertools.combinations(L, 2))
-    
-    ListEtoC = [(n1,n2) for n1 in CombNodes['E'] for n2 in CombNodes['C']]
-    ListEdges = it_(CombNodes['P']+CombNodes['T']+CombNodes['E']) + ListEtoC
-    # print(ListEdges)
-
-    for begin, end in ListEdges:
-        start = DictPos[begin]
-        A = Ax.copy()
-        A1 = Path1(A,start)
-        goal = DictPos[end]        
-        path = Path2(A1.copy() ,start,  goal)
-        path = np.array(path)       
-        # dist = (np.abs(np.diff(path.T)).sum())#.astype(int)
-        dist = (((np.diff(path.T)==0).T)*DistFactor).sum().round(2)
-        ID = begin + '-' + end
-        DictLine[ID] = {'path' : path, 'dist' : dist}     
-    
-    return DictLine, DictPos, A0,dict(Comb), ListWall  
 
 def Update_Algo(algo):
     print('Update_Algo')
@@ -284,27 +287,44 @@ def Update_Algo(algo):
     nx.set_node_attributes(G0, DictNodeGraph)
 
     algo.G0 = G0
-    # G0 = algo.G0
     
     DataCategorie = {}
     confs = algo.confs2
-    mask = confs['Actif'].notnull()
+    mask = confs['Actif'] == 1
     df = confs[mask].copy()
     for Categorie in df.Categorie.unique():        
         dfx = df[df.Categorie == Categorie]
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    }   
+                    } 
+    #MODE INDIV T Tx T0 Bus & group ... 
+    print(algo.Tmode)
+    if np.any(algo.SlotsDict['P'].Bus.values) & (algo.Tmode != False):
+        if ('T' in algo.CombNodes) & (algo.Tmode == 'Tx'):
+            mode = algo.Tmode
+            # if algo.Tmode == 'T0':
+            #     algo.PtoTConnect = PToT_path_2(algo)
+            # algo.Group = False
+        else : 
+            mode = 'Bus'
+        algo.BusActif = True
+    else : 
+        mode = False
+        algo.SlotsDict['P'].Bus = False
+        algo.BusActif = False
+    algo.indivMode = mode  
+    print(('T' in algo.CombNodes) & (algo.Tmode != False))
+        
     # print(algo.confs2)
     # print(DataCategorie['Nozzle'])
     algo.DataCategorie = DataCategorie
+    algo.NameEV = confs.loc[(confs.Actif == 1) & (confs.Categorie == 'EV'),'Name'].iloc[0]
+    algo.NameReservoir = confs.loc[(confs.Actif == 1) & (confs.Categorie == 'Reservoir'),'Name'].iloc[0]
 
     #EDGES
     for n0, n1  in algo.G0.edges():
-        durite = '4'
-        # G0[n0][n1]['dist'] = G0[n0][n1]['dist']/10
-        # dist      = G0[n0][n1]['dist']/10
+        durite = str(G0[n0][n1]['durite'])
         dist      = G0[n0][n1]['dist']
         duriteVal = DataCategorie['Tuyau']['Values'][durite]['a']
         dmasse    = DataCategorie['Tuyau']['Values'][durite]['Masse']
@@ -324,7 +344,7 @@ def Update_Algo(algo):
         c = 'C{}'.format(i)
         DictNodeAttr[c] = DataCategorie['Nozzle']['Values'][n]
     for i, e in enumerate(algo.CombNodes['E']):
-        DictNodeAttr[e] = DataCategorie['EV']['Values']['Ea']
+        DictNodeAttr[e] = DataCategorie['EV']['Values'][algo.NameEV]
         # DictNodeAttr[e].update({'Bus' : algo.dfp.Bus.values[i]})
     for i, p in enumerate(algo.CombNodes['P']):
         # DictNodeAttr[p] = algo.DataCategorie['Pompe']['Values']['Pa']
@@ -332,26 +352,28 @@ def Update_Algo(algo):
     # print(DictNodeAttr)
     nx.set_node_attributes(G0, DictNodeAttr)
 
-    #MODE INDIV T Tx T0 Bus & group ... 
-    if np.any(algo.SlotsDict['P'].Bus.values) :
-        if ('T' in algo.CombNodes) & (algo.Tmode != False):
-            mode = algo.Tmode
-            if algo.Tmode == 'T0':
-                algo.PtoTConnect = PToT_path_2(algo)
-            algo.Group = False
-        else : 
-            mode = 'Bus'
-    else : 
-        mode = None
-        algo.BusActif = False
-    algo.indivMode = mode
+    
+    
+    GroupDict = algo.SlotsDict['C'].group.values
 
-    # GROUP passage crappy tant que j'ai pas reform groupdict
-    if algo.Group :
-        GroupDict = algo.SlotsDict['C'].group.values
-    else : 
-        GroupDict = [0]*len(algo.Comb['C'])
-    # print(GroupDict)
+    algo.ErrorTrigger = '' 
+    algo.Group = len(np.unique(GroupDict)) > 1
+
+    algo.ErrorTxt = '' 
+    cond1 = algo.Group & (algo.PompeB | (algo.Tmode == 'Tx')) 
+    cond2 = (not algo.Group) & (algo.Split)
+    if cond1 | cond2:
+        algo.ErrorTxt = 'group & pompe Pb split & Tmode problem {} , {}'.format(cond1,cond2)
+
+    
+    print(GroupDict, algo.Group, algo.ErrorTxt)
+    # else : 
+
+    # if algo.Group :
+    #     GroupDict = algo.SlotsDict['C'].group.values
+    # else : 
+    #     GroupDict = [0]*len(algo.Comb['C'])
+    # # print(GroupDict)
     
     gr = collections.defaultdict(list)
     for i, g in enumerate(GroupDict):
@@ -367,7 +389,7 @@ def Update_Algo(algo):
             gr2.append((g,Clist))
     algo.GroupDict = GroupDict  
     algo.gr = gr2
-    # print(algo.GroupDict, algo.gr)
+    print(algo.GroupDict, algo.gr)
 
 def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
 
@@ -407,7 +429,7 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
     lpe = LenPath - lc
     MinOffset = LenPath*rs
     # MinOffset = 0.02
-    MinOffset = rs*0.8
+    MinOffset = rs*0.7
     MinOffset = MinOffset if MinOffset < rs else rs
     offset  = np.linspace(-MinOffset,MinOffset,lpe)
     offsetC = np.linspace(-MinOffset,MinOffset,lc)
@@ -626,12 +648,13 @@ def Gen_Objectif_New(algo, indiv):
 
     # attribution des ptypes si Bus = random 1 pt parmi ptlist dans first edges from p
     # masse cout pour nodes EV et P 
-    print(nx.get_node_attributes(G, 'Masse'))
+    # print(EtoC)
+    # print(algo.G0.nodes[p]['Bus'].values)
     for p, Elist in indiv['PtoE'].items():
         ptList = indiv['PtypeCo'][int(p[1:])]
         p , ptList
         actif = algo.G0.nodes[p]['Bus']
-        print(actif)
+        # print(actif)
         Masse , Cout = 0, 0
         if actif:
             pt = np.random.choice(ptList)
@@ -641,21 +664,39 @@ def Gen_Objectif_New(algo, indiv):
             Masse += algo.DataCategorie['Pompe']['Values'][pt]['Masse']
             Cout  += algo.DataCategorie['Pompe']['Values'][pt]['Cout']
         else : 
+            # multiple pump / slot 
             for i, e in enumerate(Elist):
                 pt = ptList[i]
                 nx.set_edge_attributes(G, {(p,e): {"pt": pt}}) 
                 Masse+= algo.DataCategorie['Pompe']['Values'][pt]['Masse']
                 Cout += algo.DataCategorie['Pompe']['Values'][pt]['Cout']
-            
-                Ncapteurs = len(EtoC[e])
-                if Ncapteurs==1: Ncapteurs=0
-                G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
-                G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
+
         G.nodes[p]['Masse'] = Masse
         G.nodes[p]['Cout']  = Cout
+
+        # EV
+        for e, Clist in EtoC.items():
+            if algo.Group & algo.Split:
+                G.nodes[e]['Masse'] = 0
+                G.nodes[e]['Cout'] = 0
+            else : 
+                Ncapteurs = len(Clist)
+                if (len(G.adj[e].items()) == 1) : Ncapteurs=0
+                # print(len(G.adj[e].items()), Ncapteurs)
+                G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
+                G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
+
+        #     Ncapteurs = len(Clist)
+        #     # print(Ncapteurs)
+        #     if Ncapteurs==1 and not actif : Ncapteurs=0
+        #     G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
+        #     G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
+
+
     
     # Ptypes
-    d = collections.defaultdict(list)
+    # permet de filtrer les lignes au depart d'une pompe et stocker pt dans Ptypes
+    d = collections.defaultdict(list)    
     for tup in list(nx.subgraph_view(indiv['G'], filter_edge= lambda n1, n2 : n1[0] == 'P').edges.data("pt")):
         p = tup[0]
         d[p].append(tup[2])
@@ -673,10 +714,13 @@ def Gen_Objectif_New(algo, indiv):
     # print(indiv['IndivLine2'])
     indiv = debit_v3(algo,indiv)
 
+    # if algo.Split &  Algo.Group:
+
+
     # OBJECTIF ALIVE
-    indiv['dist'] = round(G.size('dist'),1)
+    indiv['dist']  = round(G.size('dist'),1)
     indiv['Masse'] = G.size('Masse') + sum(nx.get_node_attributes(G, 'Masse').values())
-    indiv['Cout'] = G.size('Cout') + sum(nx.get_node_attributes(G, 'Cout').values())
+    indiv['Cout']  = G.size('Cout')  + sum(nx.get_node_attributes(G, 'Cout').values())
     indiv['Cout'] = round(indiv['Cout'],1)
     indiv['PressionList'] = np.array(list(nx.get_node_attributes(G, "Pi").values())).round(1)
     indiv['DebitList'] = np.array(list(nx.get_node_attributes(G, "Qi").values())).round(1)
@@ -781,6 +825,7 @@ def Indiv_Graph(algo, indiv,mode = None):
         ListEdges += edgesEtoC
         Tconnect = Cluster_(algo, Pnodes, algo.CombNodes['T'])
         # print(Tconnect)
+        # print(Tconnect)
         for p in Pnodes:
             Elist = indiv['PtoE'][p]
             # print(Elist)
@@ -797,34 +842,14 @@ def Indiv_Graph(algo, indiv,mode = None):
                     # print(p,Elist,Tlist,Adj_Shortest_edge(algo,p,Tlist), edges)
                 else : 
                     ListEdges += Bus_(algo, p, Elist)
-
             else : 
                 ListEdges += [(p,e) for e in Elist]
 
         G = algo.G0.edge_subgraph(ListEdges).copy() 
 
-    elif mode == 'T0':
-        Tlist = algo.CombNodes['T']
-        G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
-        PtoTConnect = algo.PtoTConnect
-        for p in indiv['PtoE']:
-            PtoTedges = PtoTConnect[p]
-        # for p, PtoTedges in PtoTConnect.items(): 
-            # print(indiv['PtoE'], p, PtoTedges)
-            if algo.G0.nodes()[p]['Bus']:
-                Pedges = list(G.edges(p))
-                G.remove_edges_from(Pedges)
-                PtoTedges  = PtoTConnect[p]
-                G.add_edges_from(PtoTedges)        
+        
 
-                Tlist = np.unique(np.array(PtoTedges).ravel())
-                Tlist = Tlist[Tlist != p].tolist()
-                Elist = indiv['PtoE'][p]
 
-                TtoEconnect = Cluster_(algo, Tlist, Elist)   
-                # print(TtoEconnect)
-                for t, Elist in TtoEconnect.items():
-                    G.add_edges_from(Bus_(algo, t, Elist))
     
     elif mode == 'Bus': 
         G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy()
@@ -848,7 +873,28 @@ def Indiv_Graph(algo, indiv,mode = None):
                 p = path[c]
                 Gd.add_edges_from(nx.utils.pairwise(p))
 
+    # print(Gd.edges())
+    # print(Tlist)
+    # Gd reorganisation delete T node with 1 successors
+    if mode == 'Tx':
+        for T in algo.CombNodes['T']: 
+            if T in Gd :      
+                # l = len(Gd.adj[T].items())
+                successors = list(Gd.successors(T))
+                # print(list(Gd.predecessors(T)))
+                if len(successors) == 1:
+                    n0 = successors[0]
+                    n1 = list(Gd.predecessors(T))[0]
+                    Gd.remove_node(T)
+                    Gd.add_edge(n1, n0)
+    #                 print(n0, n1)
+    #             print(T, l)
+    # print(Gd.edges())
+
+
+
     nx.set_node_attributes(Gd,algo.G0.nodes)
+    # print(list(Gd.predecessors('T1')))
     # galere set_edge_attributes marche pas pour digraph obliger de reconstruire manuellement
     attrs = {(n0, n1) : algo.G0[n0][n1] for  n0, n1 in Gd.edges}
     nx.set_edge_attributes(Gd,attrs)
@@ -902,7 +948,8 @@ def IndivLine_(algo, indiv):
     #             Pline.append((nEV,pt, d))
     #             nEV+=1
     #         indivline[p] = Pline    
-    # print(indivline)    
+    # print(indivline)   
+    #  
 
     return indivline
 
@@ -931,11 +978,16 @@ def debit_v3(algo,indiv):
                 CcList.append(CoeffC)
 
                 # direct connexion P to C 
+                # print(len(G.adj[e].items()) )
                 if (len(G.adj[e].items()) > 1) & (algo.Split == False): 
-                # if (len(G.adj[e].items()) > 1): 
-                    CoeffE    = G.nodes[e]['a']
+                    CoeffE = G.nodes[e]['a']
                 else :
                     CoeffE = 0
+
+                if algo.Split:
+                    G.nodes[e]['Masse'] += 10
+                    G.nodes[e]['Cout']  += 0.2
+
                 
                 F = F - coef_PtoE*(Q0-Qx)**2
                 F[F<0] = 0              

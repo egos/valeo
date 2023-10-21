@@ -22,6 +22,19 @@ from types import SimpleNamespace
 st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
 pop = 10      
 
+st.markdown(
+    """
+<style>
+div.stButton button {
+
+    width: 200px;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
+
 #conf file algo keys
 keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
           "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
@@ -163,10 +176,10 @@ with st.expander("indivs params", True):
     SplitText = 'si no group = Deactivate'
     Npa = int(c3.number_input(label= 'Npa',key='Npa' , value= algo.Npa))    
     Npc = int(c3.number_input(label= 'Npc',key='Npc' , value= algo.Npc))  
-    # PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False',value = algo.PompeB)
+    algo.PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False')
     # ListSplitName = ['Deactivate','Auto','Forced']
-    Split = c4.toggle('Split')
-    BusActif = True     
+    Split = c4.toggle('Split', help = 'only with Group = True')
+    # BusActif = True     
     # algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
     # if not algo.Group : Split = 'Deactivate'
     algo.Split  = Split      
@@ -175,38 +188,56 @@ with st.expander("indivs params", True):
     algo.Pmax = Npa + Npc
     algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
 
-    algo.Tmode = c4.radio(label="Tmode",options= [False,'Bus','T0','Tx'])                     
+    algo.Tmode = c4.radio(label="BusMode",options= [False,'Bus','Tx'])                     
 
     default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
     default = ''
     NameIndiv = st.text_input('reverse name_txt to indiv', default,help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
     NameIndiv = NameIndiv.replace(" ",'').replace('"','').split(';')
     
-session_state['algo'] = algo        
-st.write('Group = ',algo.Group, ', Pompe_B = ',algo.PompeB , ', Split = ', algo.Split, ', BUS = ', algo.BusActif)   
+session_state['algo'] = algo 
+
+DictAlgo = dict(
+        Group = algo.Group,
+        Pompe_B = algo.PompeB,
+        Split =   algo.Split,
+        PbusActif =  algo.BusActif,
+        BusMode =  algo.indivMode,
+            ) 
 c0,c1,c2,c3,c4 = st.columns(5) 
-algo.Plot = c0.checkbox('Show  figure & details', value = False, help = "desactiver cette option ameliore les performances")
+algo.Plot = c0.checkbox('Show  figure & info', value = False)
 KeepResults =  c1.checkbox('Keep results') 
         
 if c2.button('RESET'):
     Update_Algo(algo)
-    print('Params : RESET')              
-    if (NameIndiv != ['']):
-        L = []
-        for Name in NameIndiv: 
-            if Name != '' :
-                indiv = Indiv_reverse(Name,algo)             
-                L.append(indiv)
-        df = pd.DataFrame(L)
-        df = df.reset_index(drop = True)
+    DictAlgo = dict(
+        Group = algo.Group,
+        Pompe_B = algo.PompeB,
+        Split =   algo.Split,
+        PbusActif =  algo.BusActif,
+        BusMode =  algo.indivMode,
+            ) 
+    if algo.ErrorTxt != '':
+        st.error('error please check parameters : ' + str(DictAlgo)  )
     else : 
-        df = indiv_init(algo, algo.pop)
-    if KeepResults:
-        algo.df = pd.concat([df,algo.df]) 
-    else :
-        algo.df = df.drop_duplicates(subset='Name_txt')
-    algo.SaveRun = []
-    session_state['algo'] = algo
+        st.success('no conflicts for parameters : ' + str(DictAlgo))
+        print('Params : RESET')              
+        if (NameIndiv != ['']):
+            L = []
+            for Name in NameIndiv: 
+                if Name != '' :
+                    indiv = Indiv_reverse(Name,algo)             
+                    L.append(indiv)
+            df = pd.DataFrame(L)
+            df = df.reset_index(drop = True)
+        else : 
+            df = indiv_init(algo, algo.pop)
+        if KeepResults:
+            algo.df = pd.concat([df,algo.df]) 
+        else :
+            algo.df = df.drop_duplicates(subset='Name_txt')
+        algo.SaveRun = []
+        session_state['algo'] = algo
                     
 if c4.button('RUN'):
     print("Params : RUN") 
@@ -261,18 +292,6 @@ if c4.button('RUN'):
         
         session_state['algo'] = algo 
         
-if c3.button('recalculation', help = 'Pompe B , Bus , debit / pression , masse cout , fitness Alive'):
-    indivs = []
-    for idx , row  in algo.df.iterrows() :
-        indiv = row.to_dict()
-        indiv = Gen_Objectif_New(algo, indiv)
-        indivs.append(indiv)  
-    algo.indivs = indivs
-    df = pd.DataFrame(indivs) 
-    df = df.reset_index(drop = True)
-    algo.df = df
-    # algo.df = df.drop_duplicates(subset='Name_txt')
-    session_state['algo'] = algo   
 df1 = algo.df.copy()
 
 # plot gen run stat
@@ -304,7 +323,7 @@ if len(df1)>0 :
         epoch = algo.epoch,        )
     st.write(str(DictParams))
 
-    st.metric(label="create", value=True)
+    # st.metric(label="Group", value=algo.Group)
 
     dfx = df1[ColBase].copy()
     for col in dfx.columns:
@@ -328,50 +347,59 @@ if len(df1)>0 :
     with st.expander("Figures", True):
         ListResultsExport = []
         if (Range> 0) & algo.Plot:
-            stcol  = st.columns(3)
+            stcol  = st.columns(4)
             hideEtoC = stcol[0].checkbox('hideEtoC',False)
-            rs = stcol[1].slider('slot size', 0.2, 1.2, step = 0.1, value = 0.4)
-            Empty = stcol[2].empty()
+            # toggle = stcol[2].toggle('Graph')
+            rs = stcol[2].slider('slot size', 0.2, 1.2, step = 0.1, value = 0.4)
+            Empty = stcol[3].empty()
 
-            colSt = st.columns(4) 
-            idxcol = 0 
-            for i in range(Range): 
-                row = dfSelect.iloc[i]
-                indiv = row.to_dict()                    
-                fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
-                row.name = row.ID
-                # row.index.name = 'ID'
-                colSt[idxcol].table(row[['Ptypes','dist','Debit','Cout']].astype(str))
+            if stcol[1].toggle('Graph'):
+                
+                idxcol = 0 
+                # c1, c2 = st.columns(2)
+                for i in range(Range):
+                    
+                    row = dfSelect.iloc[i]
+                    text = ''
+                    for n in ['ID' , 'Name_txt' , 'Ptypes','dist','Debit','Cout']:
+                        text += n + ' : ' +  str(row[n]) + ' ----- '
+                    st.write(text)
+                    c1, c2, c3 = st.columns([1,2,2])
+                    indiv = row.to_dict()
+                    fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
+                    row.name = row.ID
 
+                    ListResultsExport.append({'row':row, 'fig': fig})
+                    c1.pyplot(fig)
+                    G = indiv['G']
+                    
+                    # edges
+                    df = nx.to_pandas_edgelist(G).drop(columns = ['path'])
+                    c2.dataframe(df, use_container_width=True, hide_index=True)
+                    # nodes    
+                    df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
+                    df = df.drop(columns = ['pos','Type','Actif','Categorie'])
+                    c3.dataframe(df, use_container_width=True)
+            else :                    
+                colSt = st.columns(4) 
+                idxcol = 0 
+                for i in range(Range): 
+                    row = dfSelect.iloc[i]
+                    indiv = row.to_dict()                    
+                    fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
+                    row.name = row.ID
+                    # row.index.name = 'ID'
+                    colSt[idxcol].table(row[['Ptypes','dist','Debit','Cout']].astype(str))
 
-                ListResultsExport.append({'row':row, 'fig': fig})
-                colSt[idxcol].pyplot(fig)
-                idxcol +=1
-                if idxcol > 3:
-                    idxcol = 0
+                    ListResultsExport.append({'row':row, 'fig': fig})
+                    colSt[idxcol].pyplot(fig)
+                    idxcol +=1
+                    if idxcol > 3:
+                        idxcol = 0
 
             Empty.download_button(label ='📥 download results',
                 data = export_excel_test(algo, ListResultsExport),
                 file_name= 'results.xlsx')          
-    
-    with st.expander("Graph", True):  
-        if st.toggle('toggle') &  (Range> 0) & algo.Plot:
-            idxcol = 0 
-            # c1, c2 = st.columns(2)
-            for i in range(Range):
-                 
-                row = dfSelect.iloc[i]
-                indiv = row.to_dict()
-                G = indiv['G']
-                st.write(row.Name_txt)
-                c1, c2 = st.columns(2)
-                
-                # edges
-                df = nx.to_pandas_edgelist(G).drop(columns = ['path'])
-                c1.dataframe(df, use_container_width=True, hide_index=True)
-                # nodes
-                df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
-                c2.dataframe(df, use_container_width=True)
                   
 # PickleDonwload.download_button(
 #     label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
