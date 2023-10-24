@@ -231,7 +231,7 @@ def load_data_brut(File , dfmap = None):
         File = File, 
         PlotColor = PlotColor,
         dfmap = dfmap,
-        Group = None,
+        Group = False,
         GroupDict = None,
         DictPos = DictPos,
         gr = {},
@@ -303,23 +303,31 @@ def Update_Algo(algo):
         DataCategorie[Categorie] = {
             'Unique' : dfx.Name.unique().tolist(),
             'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    } 
+                    }  
+        
+    
     #MODE INDIV T Tx T0 Bus & group ... 
-    print(algo.Tmode)
+    # print(algo.Tmode)
+    algo.ErrorParams = 0
     if np.any(algo.SlotsDict['P'].Bus.values) & (algo.Tmode != False):
-        if ('T' in algo.CombNodes) & (algo.Tmode == 'Tx'):
-            mode = algo.Tmode
-            # if algo.Tmode == 'T0':            #     algo.PtoTConnect = PToT_path_2(algo)
-        else : 
-            mode = 'Bus'
+        if ('T' not in algo.CombNodes) & (algo.Tmode == 'Tx'):
+            algo.Tmode = 'Bus'
+            algo.ErrorParams = 'Warning : no T detected BusMode switch to Bus  :'
         algo.BusActif = True
     else : 
-        mode = False
+        if algo.Tmode != False : algo.ErrorParams = 'Warning : no BUS Pump slot activated in map config BusMode switch to False  :'
+        algo.Tmode  = False 
         algo.SlotsDict['P'].Bus = False
         algo.BusActif = False
-    # algo.indivMode = mode  
-    # print(('T' in algo.CombNodes) & (algo.Tmode != False))
-        
+    
+    GroupDict = algo.SlotsDict['C'].group.values
+    if len(np.unique(GroupDict)) == 0: algo.ErrorParams = 1  
+    print(algo.Group)
+
+    cond1 = algo.Group & (algo.PompeB | (algo.Tmode == 'Tx')) 
+    cond2 = (not algo.Group) & (algo.Split)
+    if cond1 | cond2: algo.ErrorParams = 2
+            
     # print(algo.confs2)
     # print(DataCategorie['Nozzle'])
     algo.DataCategorie = DataCategorie
@@ -353,12 +361,7 @@ def Update_Algo(algo):
         DictNodeAttr[p] = {'Bus' : algo.SlotsDict['P'].Bus.values[i]}
     nx.set_node_attributes(G0, DictNodeAttr)   
     
-    GroupDict = algo.SlotsDict['C'].group.values
-    algo.Group = len(np.unique(GroupDict)) > 1    
 
-    cond1 = algo.Group & (algo.PompeB | (algo.Tmode == 'Tx')) 
-    cond2 = (not algo.Group) & (algo.Split)
-    algo.ErrorParams = cond1 | cond2
 
     # if algo.Group :
     #     GroupDict = algo.SlotsDict['C'].group.values

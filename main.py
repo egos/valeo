@@ -107,8 +107,6 @@ with st.expander('Map Config',True):
                 )
     
     c1,c2,c3,c4 = st.columns([1.5,0.2,1,1])   
-    # dfStyler  = dfline.style.set_properties(**{'text-align': 'center'})
-    # dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'center')])])
     Coldfline = ["ID","Connect", "dist","durite"]
     dflineSlice = c1.data_editor(algo.dfline0[Coldfline].copy(),
                 #    column_order = ("ID", "dist","connect","durite"),
@@ -163,26 +161,19 @@ with st.expander("indivs params", True):
         ListRes.append(res)
     algo.fitnessCompo = np.array(ListRes)
 
-    SplitText = 'si no group = Deactivate'
     Npa = int(c3.number_input(label= 'Npa',key='Npa' , value= algo.Npa))    
-    Npc = int(c3.number_input(label= 'Npc',key='Npc' , value= algo.Npc))  
-    algo.PompeB = c4.toggle(label= 'Pompe B', help = 'si group = False')
-    # ListSplitName = ['Deactivate','Auto','Forced']
-    Split = c4.toggle('Split', help = 'only with Group = True')
-    # BusActif = True     
-    # algo.PompeB = PompeB & (not algo.Group) & (not BusActif)
-    # if not algo.Group : Split = 'Deactivate'
-    algo.Split  = Split      
+    Npc = int(c3.number_input(label= 'Npc',key='Npc' , value= algo.Npc)) 
     algo.Npa = Npa
     algo.Npc = Npc
     algo.Pmax = Npa + Npc
     algo.PompesSelect = ['Pa'] * algo.Npa + ['Pc'] * algo.Npc
 
-    algo.Tmode = c4.radio(label="BusMode",options= [False,'Bus','Tx'])                     
+    algo.Group  = c4.toggle(label= 'Group', help = 'depend of nozzle group number in map config') 
+    algo.PompeB = c4.toggle(label= 'Pompe B', help = 'if group = False')
+    algo.Split  = c4.toggle('Split', help = 'if Group = True')      
+    algo.Tmode = c4.radio(label="BusMode",options= [False,'Bus','Tx'])                   
 
-    default =  "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3"
-    default = ''
-    NameIndiv = st.text_input('reverse name_txt to indiv', default,help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
+    NameIndiv = st.text_input('reverse name_txt to indiv', '',help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
     NameIndiv = NameIndiv.replace(" ",'').replace('"','').split(';')
     
 session_state['algo'] = algo 
@@ -207,10 +198,13 @@ if c2.button('RESET'):
         PbusActif =  algo.BusActif,
         BusMode =  algo.Tmode,
             ) 
-    if algo.ErrorParams:
-        st.error('error please check parameters : ' + str(DictAlgo)  )
+    if algo.ErrorParams == 2:
+        st.error('ERROR , conflicts with GROUPS : ' + str(DictAlgo))
     else : 
-        st.success('no conflicts for parameters : ' + str(DictAlgo))
+        if algo.ErrorParams !=0:
+            st.warning(algo.ErrorParams + str(DictAlgo))
+        else :
+            st.success('no conflicts for parameters : ' + str(DictAlgo))
         print('Params : RESET')              
         if (NameIndiv != ['']):
             L = []
@@ -300,7 +294,7 @@ if len(algo.SaveRun)> 1 :
         c2.plotly_chart(fig,use_container_width=True) 
 
 # df & plot 
-if len(df1)>0 :
+if (len(df1)>0) & (algo.ErrorParams !=2) :
 
     df1 = df1.sort_values(['fitness']).reset_index(drop = True)
     dfline = algo.dfline2    
@@ -321,7 +315,7 @@ if len(df1)>0 :
             # print(col)
             dfx[col]= dfx[col].astype(str)
 
-    with st.expander("Dataframe", True):
+    with st.expander("Results Table", True):
         dfx.insert(0, "Select", False)
         dfx.loc[:3,'Select'] = True
         edited_df = st.data_editor(
@@ -334,26 +328,22 @@ if len(df1)>0 :
         dfSelect = df1[edited_df.Select].copy()
         Range = len(dfSelect) 
 
-    with st.expander("Figures", True):
+    with st.expander("Figures & detailled results", True):
         ListResultsExport = []
         if (Range> 0) & algo.Plot:
             stcol  = st.columns(4)
-            hideEtoC = stcol[0].checkbox('hideEtoC',False)
-            # toggle = stcol[2].toggle('Graph')
+            hideEtoC = stcol[0].checkbox('hide EtoC',False)
             rs = stcol[2].slider('slot size', 0.2, 1.2, step = 0.1, value = 0.4)
             Empty = stcol[3].empty()
 
-            if stcol[1].toggle('Graph'):
-                
+            if stcol[1].toggle('Detailled results'):                
                 idxcol = 0 
-                # c1, c2 = st.columns(2)
                 for i in range(Range):
                     
                     row = dfSelect.iloc[i]
-                    text = ''
-                    for n in ['ID' , 'Name_txt' , 'Ptypes','dist','Debit','Cout']:
-                        text += n + ' : ' +  str(row[n]) + ' ----- '
-                    st.write(text)
+                    ColI = ['ID' , 'Name_txt','dist','Debit','Cout']
+
+                    st.dataframe(row[ColI].to_frame().T,hide_index= True)
                     c1, c2, c3 = st.columns([1,2,2])
                     indiv = row.to_dict()
                     fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
@@ -393,6 +383,6 @@ if len(df1)>0 :
                   
 
 
-# c3.pyplot(fig)
+
                 
                 
