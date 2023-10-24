@@ -1,4 +1,27 @@
-elif mode == 'T0':
+
+# ancien pickdownload
+with st.sidebar:
+    pass
+    #     # c1, c2 = st.columns(2)
+    #     uploaded_file = st.file_uploader('LOAD Save.pickle') 
+    #     if uploaded_file is not None: 
+    #         if 'load' not in session_state:
+    #             print(uploaded_file)
+    #             SaveAlgo = pickle.load(uploaded_file)
+    #             algo = SimpleNamespace(**SaveAlgo)
+    #             session_state['algo'] = algo
+    #             session_state['load'] = True 
+    #     PickleDonwload = st.empty()
+
+
+
+# PickleDonwload.download_button(
+#     label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
+#     data=pickle.dumps(vars(algo)),
+#     file_name="Save_{}.pickle".format(today)) 
+
+
+if mode == 'T0':
     Tlist = algo.CombNodes['T']
     G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
     PtoTConnect = algo.PtoTConnect

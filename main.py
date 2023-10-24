@@ -22,18 +22,7 @@ from types import SimpleNamespace
 st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
 pop = 10      
 
-st.markdown(
-    """
-<style>
-div.stButton button {
-
-    width: 200px;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-
+st.markdown("""<style> div.stButton button { width: 200px;}  </style> """,unsafe_allow_html=True)
 
 #conf file algo keys
 keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
@@ -54,53 +43,54 @@ if 'algo' not in session_state:
     print('BEGIN')
     File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : [2,5]}
     algo = load_data_brut(File)
-    Update_Algo(algo)
     session_state['algo'] = algo
 else : 
     print('reload')
     algo = session_state['algo']
 
-
-title ='input & pathfinding : 🖱️ press submit for change take effect'
-
-# ancien pickdownload
-with st.sidebar:
-    pass
-    #     # c1, c2 = st.columns(2)
-    #     uploaded_file = st.file_uploader('LOAD Save.pickle') 
-    #     if uploaded_file is not None: 
-    #         if 'load' not in session_state:
-    #             print(uploaded_file)
-    #             SaveAlgo = pickle.load(uploaded_file)
-    #             algo = SimpleNamespace(**SaveAlgo)
-    #             session_state['algo'] = algo
-    #             session_state['load'] = True 
-    #     PickleDonwload = st.empty()
-
 with st.sidebar.form('Map excel sheet name'):
-    st.subheader(title)
+    text ='input & pathfinding : 🖱️ press submit for change take effect'
+    st.subheader(text)
     uploaded_file = st.file_uploader('drag & drop excel : confs & map files',type="xlsx") 
     SheetMapName  = st.selectbox(label = "map excel sheet name", options = algo.SheetMapNameList) 
     length     = st.number_input(label = 'length (m)', value = 5.0)
     Width      = st.number_input(label = 'Width(m)'  , value = 2.0)
     File = {
         'SheetMapName' : SheetMapName,
-        'uploaded_file' : uploaded_file,
-        'DistFactor' : (Width, length)
+        'uploaded_file': uploaded_file,
+        'DistFactor'   : (Width, length)
         }
     
     if st.form_submit_button("Submit & Reset"): 
         print('submitted Map')
-        # session_state.clear()
         algo = load_data_brut(File)
-        Update_Algo(algo)
         df = indiv_init(algo, 1)
         algo.df = df.drop_duplicates(subset='Name_txt')
         session_state['algo'] = algo
-        # fig = new_plot_2(algo, plotedges = False)
-        # c3.pyplot(fig) 
 
-with st.expander('Map Config'):
+if st.toggle('Activate feature edited map'):
+    with st.expander('Map custom',True):
+        c1 , c2 = st.columns([3,1])
+
+        dfmap = algo.dfmap.copy().astype(str)
+        dfmap.columns = dfmap.columns.astype(str)
+        dfmap2 = c1.data_editor(dfmap,
+                                use_container_width = True,
+                                height = int(35.2*(len(dfmap)+1))
+                                )
+        dfmap2 = dfmap2.replace(['0','1'],[0,1])
+
+        #if map is not functionnal
+        try : 
+            algo2 = load_data_brut(copy.deepcopy(algo.File),dfmap = dfmap2)
+            fig = new_plot_2(algo2, plotedges = False)
+            c2.pyplot(fig)
+        except : 
+            st.warning("warning map is not correctly designed")
+
+        if st.button("edited map"): algo = copy.copy(algo2)
+
+with st.expander('Map Config',True):
     Col1 = ['a','b','c']
     Format = dict(zip(Col1,["{:.2e}"]))
     Format.update(dict(zip(['Masse','Cout'],["{:.0f}",  "{:,.2f}"])))
@@ -202,10 +192,10 @@ DictAlgo = dict(
         Pompe_B = algo.PompeB,
         Split =   algo.Split,
         PbusActif =  algo.BusActif,
-        BusMode =  algo.indivMode,
+        BusMode =  algo.Tmode,
             ) 
 c0,c1,c2,c3,c4 = st.columns(5) 
-algo.Plot = c0.checkbox('Show  figure & info', value = False)
+algo.Plot = c0.checkbox('Show  figure & info', value = True)
 KeepResults =  c1.checkbox('Keep results') 
         
 if c2.button('RESET'):
@@ -401,10 +391,7 @@ if len(df1)>0 :
                 data = export_excel_test(algo, ListResultsExport),
                 file_name= 'results.xlsx')          
                   
-# PickleDonwload.download_button(
-#     label="📥 download pickle Save_{}.pickle".format(today), key='pickle_Save_pickle',
-#     data=pickle.dumps(vars(algo)),
-#     file_name="Save_{}.pickle".format(today)) 
+
 
 # c3.pyplot(fig)
                 

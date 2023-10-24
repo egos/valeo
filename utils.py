@@ -47,7 +47,6 @@ def export_excel(algo, Type):
     confs = algo.confs2
     dfmap = algo.dfmap
     dfline = algo.dfline2.drop(columns= 'path')
-    # dfline['Select'] = 'o'
     dfcapteur = algo.SlotsDict['C']
     
     output = BytesIO()
@@ -70,7 +69,7 @@ def new_import_T(dfmap, DistFactor = [2,5]):
     SlotColor = {'C' : 10, 'E': 20, 'P' : 30,"T":40}
     slots = ['C','P','E',"T"]    
     
-    A0 = dfmap.values
+    A0 = dfmap.copy().values
     Size = max(A0.shape)
     print(np.array(DistFactor) , np.array(A0.shape))
     DistFactor = np.array(DistFactor)/np.array(A0.shape)
@@ -128,20 +127,27 @@ def new_import_T(dfmap, DistFactor = [2,5]):
     
     return DictLine, DictPos, A0,dict(Comb), ListWall  
 
-def load_data_brut(File , select = None):
+def load_data_brut(File , dfmap = None):
     print('Init algo namespace')
     uploaded_file = File['uploaded_file']
-    SheetMapName  = File ['SheetMapName']
-    DistFactor = File['DistFactor']
+    SheetMapName  = File['SheetMapName']
+    DistFactor    = File['DistFactor']
+
+    # default input
     uploaded_file = uploaded_file if uploaded_file else 'data.xlsx'
-    # print('algo', uploaded_file)
 
     sheet_names = pd.ExcelFile(uploaded_file).sheet_names
     SheetMapNameList = [n for n in sheet_names if "map" in n]
     print(sheet_names)
 
-    dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0)        
+    if dfmap is None:
+        dfmap = pd.read_excel(uploaded_file, sheet_name= SheetMapName, index_col=0) 
+        ImportLine = True   
+    else : 
+        ImportLine = False
+ 
     DictLine, DictPos, A0, Comb, ListWall = new_import_T(dfmap, DistFactor)
+
     CombNodes = {slot :  ["{}{}".format(slot,n) for n in nList] for slot , nList  in  Comb.items()}
     CombAll = list(DictPos.keys())       
     
@@ -149,7 +155,7 @@ def load_data_brut(File , select = None):
     dfline.index.name = 'ID'
     dfline.reset_index(inplace = True)
 
-    if "lines" in sheet_names : 
+    if ("lines" in sheet_names) & ImportLine: 
         print("Load line from excel")
         lines_add = pd.read_excel(uploaded_file, sheet_name= 'lines', index_col=0)
         dfline['dist'] = lines_add['dist'].copy()
@@ -162,27 +168,28 @@ def load_data_brut(File , select = None):
     dfline['edge'] = dfline.ID.str.split('-').apply(lambda x : (x[0] , x[1]))
     dfline.columns = dfline.columns.astype(str)    
     
-    GroupDict = np.zeros(len(CombNodes['C']), dtype= int)
-    Group = ~(GroupDict == 0).all()   
-
-    DataCategorie = {}
+    # GroupDict = np.zeros(len(CombNodes['C']), dtype= int)
+    # Group = ~(GroupDict == 0).all()   
+    
     confs = pd.read_excel(uploaded_file, sheet_name= 'confs')
     confs.reset_index(drop = True, inplace= True) 
     confs.Name = confs.Name.astype(str)    
-    mask = confs['Actif'].notnull()
-    df = confs[mask].copy()
-    for Categorie in df.Categorie.unique():        
-        dfx = df[df.Categorie == Categorie]
-        DataCategorie[Categorie] = {
-            'Unique' : dfx.Name.unique().tolist(),
-            'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-                    }   
+    # mask = confs['Actif'].notnull()
+    # df = confs[mask].copy()
+
+    # DataCategorie = {}
+    # for Categorie in df.Categorie.unique():        
+    #     dfx = df[df.Categorie == Categorie]
+    #     DataCategorie[Categorie] = {
+    #         'Unique' : dfx.Name.unique().tolist(),
+    #         'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
+    #                 }   
 
     # dfc dfe dfp
-    if "slot" in sheet_names:
+    if ("slot" in sheet_names) & ImportLine:
         dfc = pd.read_excel(uploaded_file, sheet_name= 'slot', index_col=0)
         dfc.limit = dfc.limit.astype(float)
-        print(dfc)
+        # print(dfc)
     else : 
         dfc = pd.DataFrame()        
         size = len(CombNodes['C'])
@@ -221,10 +228,11 @@ def load_data_brut(File , select = None):
         SheetMapNameList = SheetMapNameList,
         uploaded_file = uploaded_file,
         DistFactor = DistFactor,
+        File = File, 
         PlotColor = PlotColor,
         dfmap = dfmap,
-        Group = True,
-        GroupDict = GroupDict,
+        Group = None,
+        GroupDict = None,
         DictPos = DictPos,
         gr = {},
         pop = 10,
@@ -237,14 +245,12 @@ def load_data_brut(File , select = None):
         Plot = False,
         dfline0 = dfline, 
         dfline2 = dfline.copy(),  
-        # DictLine = DictLine,
-        # DictEdge = DictEdge,
         epoch = 0,
         Nindiv = 0,
         Nrepro = 0,
         indivs = [],
         df = pd.DataFrame(),
-        DataCategorie =  DataCategorie,  
+        DataCategorie =  None,  
         Npa = 10,
         Npc = 0,
         PompesSelect = ['Pa'] * 10 + ['Pc'] * 0,  
@@ -255,7 +261,6 @@ def load_data_brut(File , select = None):
         EV = ['Ea'],               
         confs  = confs,
         confs2 = confs.copy(),
-        # Clist = Clist,
         Comb = Comb,
         CombAll = CombAll,
         CombNodes = CombNodes,
@@ -266,12 +271,13 @@ def load_data_brut(File , select = None):
         G0 = None,
         PtoTConnect = {},
         Tmode= False,
-        # indivMode = False,
         ErrorParams = False, 
         NameEV = 'Ea',
         NameReservoir = 'Ra',
         )
     algo = SimpleNamespace(**algo)
+
+    Update_Algo(algo)
 
     return algo
 
@@ -444,7 +450,9 @@ def new_plot_2(algo,indiv = None, hideEtoC = False, plotedges = True, rs = 0.4):
 
 
     for x,y in ListWall: 
-        ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 1, 1, color='black')) 
+        # ax.add_patch(mpatch.Rectangle((y-0.4,x-0.4), 1, 1, color='black')) 
+        ax.add_patch(mpatch.Rectangle((y-0.5,x-0.5), 1, 1, color='black')) 
+
     # style = dict(size= 15 * 9 / Ymax, color='black')
     style = dict(size = 8*rs/0.4, color='black')
     # rs = 0.4 # taille slot
