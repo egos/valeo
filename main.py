@@ -354,7 +354,7 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                     fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
                     row.name = row.ID
 
-                    ListResultsExport.append({'row':row, 'fig': fig})
+                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
                     c1.pyplot(fig)
                     G = indiv['G']
                     
@@ -378,7 +378,7 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                     # row.index.name = 'ID'
                     colSt[idxcol].dataframe(row[Colexport].drop(['ID']).astype(str), use_container_width=True)
 
-                    ListResultsExport.append({'row':row, 'fig': fig})
+                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
                     colSt[idxcol].pyplot(fig)
                     idxcol +=1
                     if idxcol > 3:
