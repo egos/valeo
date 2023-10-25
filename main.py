@@ -199,7 +199,7 @@ if c2.button('RESET'):
         BusMode =  algo.Tmode,
             ) 
     if algo.ErrorParams == 2:
-        st.error('ERROR , conflicts with GROUPS : ' + str(DictAlgo))
+        st.error('ERROR , conflicts with group : ' + str(DictAlgo))
     else : 
         if algo.ErrorParams !=0:
             st.warning(algo.ErrorParams + str(DictAlgo))
@@ -222,7 +222,8 @@ if c2.button('RESET'):
             algo.df = df.drop_duplicates(subset='Name_txt')
         algo.SaveRun = []
         session_state['algo'] = algo
-                    
+else : 
+    st.success('')                    
 if c4.button('RUN'):
     print("Params : RUN") 
     algo.SaveRun = [] 
@@ -309,11 +310,15 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
 
     # st.metric(label="Group", value=algo.Group)
 
-    dfx = df1[ColBase].copy()
+    
+
+    ColexportDefault = ['ID','dist','Debit','Masse','Cout','fitness','Epoch',
+                        'Alive','parent','ICount','Name_txt','PressionList','DebitList']
+    Colexport = st.multiselect('indiv keys', df1.columns.tolist(),ColexportDefault)
+
+    dfx = df1[Colexport].copy()
     for col in dfx.columns:
-        if col not in ColDfVal :
-            # print(col)
-            dfx[col]= dfx[col].astype(str)
+        if col not in ColDfVal : dfx[col]= dfx[col].astype(str)
 
     with st.expander("Results Table", True):
         dfx.insert(0, "Select", False)
@@ -329,21 +334,21 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
         Range = len(dfSelect) 
 
     with st.expander("Figures & detailled results", True):
-        ListResultsExport = []
+        
         if (Range> 0) & algo.Plot:
             stcol  = st.columns(4)
             hideEtoC = stcol[0].checkbox('hide EtoC',False)
             rs = stcol[2].slider('slot size', 0.2, 1.2, step = 0.1, value = 0.4)
             Empty = stcol[3].empty()
+            ListResultsExport = []
 
             if stcol[1].toggle('Detailled results'):                
                 idxcol = 0 
                 for i in range(Range):
                     
                     row = dfSelect.iloc[i]
-                    ColI = ['ID' , 'Name_txt','dist','Debit','Cout']
 
-                    st.dataframe(row[ColI].to_frame().T,hide_index= True)
+                    st.dataframe(row[Colexport].to_frame().T,hide_index= True)
                     c1, c2, c3 = st.columns([1,2,2])
                     indiv = row.to_dict()
                     fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
@@ -360,6 +365,8 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                     df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
                     df = df.drop(columns = ['pos','Type','Actif','Categorie'])
                     c3.dataframe(df, use_container_width=True)
+
+
             else :                    
                 colSt = st.columns(4) 
                 idxcol = 0 
@@ -369,17 +376,19 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                     fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
                     row.name = row.ID
                     # row.index.name = 'ID'
-                    colSt[idxcol].table(row[['Ptypes','dist','Debit','Cout']].astype(str))
+                    colSt[idxcol].dataframe(row[Colexport].drop(['ID']).astype(str), use_container_width=True)
 
                     ListResultsExport.append({'row':row, 'fig': fig})
                     colSt[idxcol].pyplot(fig)
                     idxcol +=1
                     if idxcol > 3:
                         idxcol = 0
+                        colSt = st.columns(4) 
 
             Empty.download_button(label ='📥 download results',
                 data = export_excel_test(algo, ListResultsExport),
-                file_name= 'results.xlsx')          
+                file_name= 'results.xlsx') 
+            print(len(ListResultsExport))         
                   
 
 

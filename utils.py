@@ -168,22 +168,9 @@ def load_data_brut(File , dfmap = None):
     dfline['edge'] = dfline.ID.str.split('-').apply(lambda x : (x[0] , x[1]))
     dfline.columns = dfline.columns.astype(str)    
     
-    # GroupDict = np.zeros(len(CombNodes['C']), dtype= int)
-    # Group = ~(GroupDict == 0).all()   
-    
     confs = pd.read_excel(uploaded_file, sheet_name= 'confs')
     confs.reset_index(drop = True, inplace= True) 
     confs.Name = confs.Name.astype(str)    
-    # mask = confs['Actif'].notnull()
-    # df = confs[mask].copy()
-
-    # DataCategorie = {}
-    # for Categorie in df.Categorie.unique():        
-    #     dfx = df[df.Categorie == Categorie]
-    #     DataCategorie[Categorie] = {
-    #         'Unique' : dfx.Name.unique().tolist(),
-    #         'Values' : dfx.set_index('Name').dropna(axis = 1).to_dict('index')
-    #                 }   
 
     # dfc dfe dfp
     if ("slot" in sheet_names) & ImportLine:
@@ -214,13 +201,6 @@ def load_data_brut(File , dfmap = None):
     
     SlotsDict0 = { 'C' : dfc,'E' : dfe,'P' : dfp}                
     PlotColor = {'C' : "#93c9ee", 'E': '#a2ee93', 'P' : "#c593ee", 'T': '#C0C0C0'}
-
-    #-----------GRAPH
-    # G0 = nx.from_pandas_edgelist(dfline, 's', 't', ['dist','durite','Connect','path'])
-    # print(G0)
-    # SlotList = CombAll
-    # DictNodeGraph = {k: {'pos' : DictPos[k]} for k in SlotList}
-    # nx.set_node_attributes(G0, DictNodeGraph)
 
     algo = dict(
         SheetMapName = SheetMapName,
@@ -315,14 +295,14 @@ def Update_Algo(algo):
             algo.ErrorParams = 'Warning : no T detected BusMode switch to Bus  :'
         algo.BusActif = True
     else : 
-        if algo.Tmode != False : algo.ErrorParams = 'Warning : no BUS Pump slot activated in map config BusMode switch to False  :'
+        if algo.Tmode != False : algo.ErrorParams = 'Warning : no BUS Pump slot activated in map config BusMode switch to False  : '
         algo.Tmode  = False 
         algo.SlotsDict['P'].Bus = False
         algo.BusActif = False
     
     GroupDict = algo.SlotsDict['C'].group.values
-    if len(np.unique(GroupDict)) == 0: algo.ErrorParams = 1  
-    print(algo.Group)
+    if (len(np.unique(GroupDict)) == 1) & algo.Group: algo.ErrorParams = 'Warning : group activated & no group detected for nozzle map config  : ' 
+    # print(algo.Group, (len(np.unique(GroupDict)) == 0))
 
     cond1 = algo.Group & (algo.PompeB | (algo.Tmode == 'Tx')) 
     cond2 = (not algo.Group) & (algo.Split)
@@ -330,6 +310,8 @@ def Update_Algo(algo):
             
     # print(algo.confs2)
     # print(DataCategorie['Nozzle'])
+    DataCategorie['Pompe']['Values']['Pb']['Masse'] -= DataCategorie['Pompe']['Values']['Pa']['Masse']
+    DataCategorie['Pompe']['Values']['Pb']['Cout'] -= DataCategorie['Pompe']['Values']['Pa']['Cout']
     algo.DataCategorie = DataCategorie
     algo.NameEV = confs.loc[(confs.Actif == 1) & (confs.Categorie == 'EV'),'Name'].iloc[0]
     algo.NameReservoir = confs.loc[(confs.Actif == 1) & (confs.Categorie == 'Reservoir'),'Name'].iloc[0]
@@ -361,20 +343,11 @@ def Update_Algo(algo):
         DictNodeAttr[p] = {'Bus' : algo.SlotsDict['P'].Bus.values[i]}
     nx.set_node_attributes(G0, DictNodeAttr)   
     
-
-
-    # if algo.Group :
-    #     GroupDict = algo.SlotsDict['C'].group.values
-    # else : 
-    #     GroupDict = [0]*len(algo.Comb['C'])
-    # # print(GroupDict)
-    
-    # TODO explain !!!! 
+    # generate gr dict in format [(group number , [nozzle list]), ...]
     gr = collections.defaultdict(list)
     for i, g in enumerate(GroupDict):
         gr[g].append('C{}'.format(i))
     gr = dict(gr)
-
     gr2 = []
     for g, Clist in gr.items():
         if g == 0:
@@ -597,7 +570,7 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
     Name_txt = ','.join(Name)   
     
     indiv = dict(
-        Clist = Clist,
+        # Clist = Clist,
         CtoE = CtoE,
         Econnect = Econnect,
         EtoC = EtoC,
@@ -607,24 +580,18 @@ def indiv_create(algo, row = None, NewCtoE = None, IniEtoP = None):
         Pconnect = Pconnect,
         PtoE = PtoE,
         Plist = Plist,
-        # Pcount = Pcount,
-        # Ptype0 = Ptype,
         Ptype = Ptype,
         PtoC = PtoC,
         Enodes = Elist,
         Pnodes = Pnodes,
         PtypeCo = PtypeCo,
-        # List_EtoC = List_EtoC,
-        # List_PtoE = List_PtoE,
         edgesEtoC = edgesEtoC,
         edgesPtoE = edgesPtoE,
-        # Name = Name,
         ID = algo.Nindiv,
         parent = [],
         Name_txt = Name_txt,
         Epoch = algo.epoch,  
-        # ListBusActif = [True] * len(Plist) ,
-        # ListBusActif = [algo.ListBusPactif[p] for p in Plist] ,   
+        ICount = {'Pa': 0, 'Pb' : 0, 'Pc' : 0, 'EV' : 0,'Y' : 0,'T':0},
     )    
     # print(PtoE)
     # print(EtoC)
@@ -655,15 +622,26 @@ def Gen_Objectif_New(algo, indiv):
         Masse , Cout = 0, 0
         if actif:
             pt = np.random.choice(ptList)
+            indiv['ICount'][pt] += 1
             end = list(G.edges(p))[0]
             # G[p][end]['pt'] = pt
             nx.set_edge_attributes(G, {end: {"pt": pt}})         
             Masse += algo.DataCategorie['Pompe']['Values'][pt]['Masse']
             Cout  += algo.DataCategorie['Pompe']['Values'][pt]['Cout']
-        else : 
+        else :            
             # multiple pump / slot 
+            pts = ptList[0]
             for i, e in enumerate(Elist):
                 pt = ptList[i]
+                indiv['ICount'][pt] += 1
+                if (algo.PompeB) & (i > 0): 
+                    if pts == 'Pa' :
+                        pt, pts  = 'Pb',''
+                        indiv['ICount']['Pb'] += 1
+                        indiv['ICount']['Pa'] -= 2
+                    else :
+                        pts = 'Pa'
+                    # print(pt, pts)
                 nx.set_edge_attributes(G, {(p,e): {"pt": pt}}) 
                 Masse+= algo.DataCategorie['Pompe']['Values'][pt]['Masse']
                 Cout += algo.DataCategorie['Pompe']['Values'][pt]['Cout']
@@ -680,16 +658,9 @@ def Gen_Objectif_New(algo, indiv):
                 Ncapteurs = len(Clist)
                 if (len(G.adj[e].items()) == 1) : Ncapteurs=0
                 # print(len(G.adj[e].items()), Ncapteurs)
+                indiv['ICount']['EV'] += Ncapteurs
                 G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
                 G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
-
-        #     Ncapteurs = len(Clist)
-        #     # print(Ncapteurs)
-        #     if Ncapteurs==1 and not actif : Ncapteurs=0
-        #     G.nodes[e]['Masse'] = algo.G0.nodes[e]['Masse'] * Ncapteurs
-        #     G.nodes[e]['Cout']  = algo.G0.nodes[e]['Cout']  * Ncapteurs
-
-
     
     # Ptypes
     # permet de filtrer les lignes au depart d'une pompe et stocker pt dans Ptypes
@@ -704,24 +675,27 @@ def Gen_Objectif_New(algo, indiv):
     # nx.get_node_attributes(G, 'Masse')
     # nx.get_node_attributes(G, 'Cout')
 
-    #SPLIT
-
     # DEBIT
     indiv['IndivLine2'] = IndivLine_(algo,indiv)
-    # print(indiv['IndivLine2'])
     indiv = debit_v3(algo,indiv)
-
-    # if algo.Split &  Algo.Group:
-
 
     # OBJECTIF ALIVE
     indiv['dist']  = round(G.size('dist'),1)
+
     indiv['Masse'] = G.size('Masse') + sum(nx.get_node_attributes(G, 'Masse').values())
+    indiv['Masse'] += algo.DataCategorie['Reservoir']['Values'][algo.NameReservoir]['Masse']
+    indiv['Masse'] = round(indiv['Masse'],1)
+
     indiv['Cout']  = G.size('Cout')  + sum(nx.get_node_attributes(G, 'Cout').values())
+    indiv['Cout'] += algo.DataCategorie['Reservoir']['Values'][algo.NameReservoir]['Cout']
     indiv['Cout'] = round(indiv['Cout'],1)
+
     indiv['PressionList'] = np.array(list(nx.get_node_attributes(G, "Pi").values())).round(1)
     indiv['DebitList'] = np.array(list(nx.get_node_attributes(G, "Qi").values())).round(1)
     indiv['Debit'] = round(indiv['DebitList'].sum(),1)
+
+
+    
 
     ListFitness = ['dist','Masse','Cout']
     fitness = 0
@@ -741,6 +715,8 @@ def Gen_Objectif_New(algo, indiv):
     for e,v in indiv['EtoC'].items():
         if len(v) > DictEVNmax[e] : cond = cond & False 
     indiv['Alive'] = indiv['Alive'] & cond 
+    indiv['PressionList']  = dict(zip(algo.CombNodes['C'], indiv['PressionList']))
+    indiv['DebitList']  = dict(zip(algo.CombNodes['C'], indiv['DebitList']))
     # print(len(G.adj['P0']))
     return indiv
 
@@ -858,7 +834,7 @@ def Indiv_Graph(algo, indiv,mode = None):
     else : 
         G = algo.G0.edge_subgraph(edgesPtoE + edgesEtoC).copy() 
 
-    #G to Digraph
+    #G to Digraph = filter T 
     Gd = nx.DiGraph()
     for p in Pnodes:
         path = nx.shortest_path(G, source = p)
@@ -867,9 +843,8 @@ def Indiv_Graph(algo, indiv,mode = None):
                 p = path[c]
                 Gd.add_edges_from(nx.utils.pairwise(p))
 
-    # print(Gd.edges())
-    # print(Tlist)
-    # Gd reorganisation delete T node with 1 successors
+
+    # Gd optimisation delete T node with 1 successors
     if mode == 'Tx':
         for T in algo.CombNodes['T']: 
             if T in Gd :      
@@ -881,14 +856,13 @@ def Indiv_Graph(algo, indiv,mode = None):
                     n1 = list(Gd.predecessors(T))[0]
                     Gd.remove_node(T)
                     Gd.add_edge(n1, n0)
+                else :
+                    indiv['ICount']['T'] += 1 
     #                 print(n0, n1)
     #             print(T, l)
     # print(Gd.edges())
 
-
-
     nx.set_node_attributes(Gd,algo.G0.nodes)
-    # print(list(Gd.predecessors('T1')))
     # galere set_edge_attributes marche pas pour digraph obliger de reconstruire manuellement
     attrs = {(n0, n1) : algo.G0[n0][n1] for  n0, n1 in Gd.edges}
     nx.set_edge_attributes(Gd,attrs)
@@ -979,6 +953,7 @@ def debit_v3(algo,indiv):
                     CoeffE = 0
 
                 if algo.Split:
+                    indiv['ICount']['Y'] += 1 
                     G.nodes[e]['Masse'] += 10
                     G.nodes[e]['Cout']  += 0.2
 
