@@ -1,6 +1,5 @@
 openpyxl
 XlsxWriter
-plotly
 matplotlib
 networkx
 streamlit

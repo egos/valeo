@@ -2,52 +2,39 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import networkx as nx
-import itertools 
-import math
 import time
-# from math import factorial as f
-from datetime import timedelta
 from streamlit import session_state
-import matplotlib.pyplot as plt
-import json
-import collections
 import copy
-from utils import *
 import plotly.express as px
 import time
-import pickle
-from types import SimpleNamespace
+from utils import *
 
-# $C^{k-1}_{n+k-1} = \frac{(n+k-1)!}{n! (k-1)!}$
+# streamlit app section 
+
 st.set_page_config(page_title = "VALEO_AG_IHM", layout="wide")
 pop = 10      
 
+# increase button width
 st.markdown("""<style> div.stButton button { width: 200px;}  </style> """,unsafe_allow_html=True)
 
-#conf file algo keys
-keydrop= ['Nvals',"confs","dfcapteur", "dfslot","dfline","indivs",
-          "df",'dfmap','A0','DataCategorie', 'DictLine','DictPos','dist','durite',
-          'duriteType','duriteVal']
+# feature with numeric / bool values
+ColDfVal   = ['Ecount','Pcount', 'dist','ID','Masse', 'Cout','Alive','Group']
 
-ColDfVal   = ['Ecount','Pcount', 'dist','ID','SumDebit_s','SumDebit_g',
-            'Masse', 'Cout','Alive','Group']
-# ColPompe = ['Ptype0', 'Ptype', 'PtypeCo','PompesCo', 'PompeSum']
-ColBase =  ['ID','Pconnect','Ptypes' ,'Econnect','Debit','dist', 'Masse', 'Cout',
-            'fitness','Epoch', 'Alive','parent','PressionList','DebitList','Name_txt']
-
-today = time.strftime("%Y%m%d")
+today = time.strftime("%Y-%m-%d-%H:%M:%S")
 print(today)
 
+# initialize data structure algo on start
 if 'algo' not in session_state: 
     print(' ')
     print('BEGIN')
     File = {'SheetMapName' : 'map', 'uploaded_file' : None, 'DistFactor' : [2,5]}
-    algo = load_data_brut(File)
+    algo = load_data(File)
     session_state['algo'] = algo
 else : 
     print('reload')
     algo = session_state['algo']
 
+# input excel map section
 with st.sidebar.form('Map excel sheet name'):
     text ='input & pathfinding : 🖱️ press submit for change take effect'
     st.subheader(text)
@@ -63,11 +50,12 @@ with st.sidebar.form('Map excel sheet name'):
     
     if st.form_submit_button("Submit & Reset"): 
         print('submitted Map')
-        algo = load_data_brut(File)
+        algo = load_data(File)
         df = indiv_init(algo, 1)
         algo.df = df.drop_duplicates(subset='Name_txt')
         session_state['algo'] = algo
 
+# edited map section
 if st.toggle('Activate feature edited map'):
     with st.expander('Map custom',True):
         c1 , c2 = st.columns([3,1])
@@ -82,14 +70,15 @@ if st.toggle('Activate feature edited map'):
 
         #if map is not functionnal
         try : 
-            algo2 = load_data_brut(copy.deepcopy(algo.File),dfmap = dfmap2)
-            fig = new_plot_2(algo2, plotedges = False)
+            algo2 = load_data(copy.deepcopy(algo.File),dfmap = dfmap2)
+            fig = Plot_indiv(algo2, plotedges = False)
             c2.pyplot(fig)
         except : 
             st.warning("warning map is not correctly designed")
 
         if st.button("edited map"): algo = copy.copy(algo2)
 
+# map section
 with st.expander('Map Config',True):
     Col1 = ['a','b','c']
     Format = dict(zip(Col1,["{:.2e}"]))
@@ -130,14 +119,14 @@ with st.expander('Map Config',True):
         algo.SlotsDict[slot] = edited_df
     
     rs = c4.slider('map slot size', 0.2, 1.2, step = 0.1, value = 0.4)
-    fig = new_plot_2(algo, plotedges = False , rs= rs)
+    fig = Plot_indiv(algo, plotedges = False , rs= rs)
     c4.pyplot(fig) 
 
 st.sidebar.download_button(label='📥 download input data template',
-                        data= export_excel(algo, False),
+                        data= export_excel_input(algo, False),
                         file_name= 'input.xlsx') 
 st.sidebar.download_button(label='📥 download input + pathfinding',
-                            data= export_excel(algo, True),
+                            data= export_excel_input(algo, True),
                             file_name= 'input.xlsx') 
 
 with st.expander("indivs params", True):
@@ -171,20 +160,14 @@ with st.expander("indivs params", True):
     algo.Group  = c4.toggle(label= 'Group', help = 'depend of nozzle group number in map config') 
     algo.PompeB = c4.toggle(label= 'Pompe B', help = 'if group = False')
     algo.Split  = c4.toggle('Split', help = 'if Group = True')      
-    algo.Tmode = c4.radio(label="BusMode",options= [False,'Bus','Tx'])                   
+    algo.Tmode = c4.radio(label="BusMode",options= [False,'Bus','T'])                   
 
     NameIndiv = st.text_input('reverse name_txt to indiv', '',help = "E0-C0,E1-C1,E2-C2,E3-C3,P0-E0,P0-E1,P1-E2,P1-E3")
     NameIndiv = NameIndiv.replace(" ",'').replace('"','').split(';')
     
 session_state['algo'] = algo 
 
-DictAlgo = dict(
-        Group = algo.Group,
-        Pompe_B = algo.PompeB,
-        Split =   algo.Split,
-        PbusActif =  algo.BusActif,
-        BusMode =  algo.Tmode,
-            ) 
+# app parameters and actions
 c0,c1,c2,c3,c4 = st.columns(5) 
 algo.Plot = c0.checkbox('Show  figure & info', value = True)
 KeepResults =  c1.checkbox('Keep results') 
@@ -224,7 +207,9 @@ if c2.button('RESET'):
         session_state['algo'] = algo
 else : 
     st.success('')                    
+
 if c4.button('RUN'):
+    # append indivs list with genetic generation
     print("Params : RUN") 
     algo.SaveRun = [] 
     iterations = algo.iterations
@@ -232,11 +217,10 @@ if c4.button('RUN'):
         indivs_total  = algo.Nrepro,
         indivs_unique = algo.df.shape[0],
         indivs_alive  = algo.df.Alive.sum(),)
-    algo.SaveRun.append(d)         
-    # latest_iteration = st.empty()                 
-    my_bar = st.empty()     
+    algo.SaveRun.append(d)                       
+    my_bar = st.empty()    
+    # select batch of indiv based on fitness and users gen parameters 
     for i in range(iterations):
-        # latest_iteration.text(f'{iterations - i} iterations left')
         my_bar.progress((i+1)/iterations)
         algo.epoch +=1
         df0 = algo.df
@@ -244,8 +228,6 @@ if c4.button('RUN'):
         df1 = df0[df0.Alive].copy()
         idxmaxCross = int(algo.crossover)
         idxmaxMuta  = int(algo.mutation)
-        # if idxmaxCross <  2 : idxmaxCross = 2            
-        # if idxmaxMuta ==  0 : idxmaxMuta = 1
         if idxmaxCross >  len(df1) : idxmaxCross = len(df1)            
         if idxmaxMuta  >  len(df1) : idxmaxMuta  = len(df1)
         Ncross = int(idxmaxCross/2)
@@ -254,16 +236,15 @@ if c4.button('RUN'):
         np.random.shuffle(Lcross)
         Lmuta = df1[:idxmaxMuta].index.values
         np.random.shuffle(Lmuta)           
-        # print(len(df1) , Lcross,idxmaxCross, Ncross,Lmuta, idxmaxMuta, Nmuta)
         L = [] 
         for n in range(Ncross):  
             i1 , i2 = Lcross[n*2] , Lcross[n*2 + 1]
             dfx = df1.loc[[i1,i2]].copy()
-            L2 = AG_CrossOver(dfx, algo)
+            L2 = Gen_CrossOver(dfx, algo)
             if L2 is not None : L += L2  
         for n in range(Nmuta):
             row = df1.loc[Lmuta[n]].copy()
-            indiv = Mutation(row, algo)
+            indiv = Gen_Mutation(row, algo)
             L.append(indiv)
     
         dfx = pd.DataFrame(L)
@@ -276,10 +257,11 @@ if c4.button('RUN'):
         algo.SaveRun.append(d)    
         
         session_state['algo'] = algo 
-        
+
+# begin of analysis part        
 df1 = algo.df.copy()
 
-# plot gen run stat
+# show unique indiv stats after gen run 
 if len(algo.SaveRun)> 1 : 
     with st.expander("Run Stats", True):
         c1, c2 = st.columns([0.4,0.6])
@@ -294,7 +276,7 @@ if len(algo.SaveRun)> 1 :
                         )
         c2.plotly_chart(fig,use_container_width=True) 
 
-# df & plot 
+# df print & plot fig
 if (len(df1)>0) & (algo.ErrorParams !=2) :
 
     df1 = df1.sort_values(['fitness']).reset_index(drop = True)
@@ -307,10 +289,6 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
         indivs_alive = df1.Alive.sum(),
         epoch = algo.epoch,        )
     st.write(str(DictParams))
-
-    # st.metric(label="Group", value=algo.Group)
-
-    
 
     ColexportDefault = ['ID','dist','Debit','Masse','Cout','fitness','Epoch',
                         'Alive','parent','ICount','Name_txt','PressionList','DebitList']
@@ -347,14 +325,13 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                 for i in range(Range):
                     
                     row = dfSelect.iloc[i]
-
                     st.dataframe(row[Colexport].to_frame().T,hide_index= True)
+
                     c1, c2, c3 = st.columns([1,2,2])
                     indiv = row.to_dict()
-                    fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
+                    fig = Plot_indiv(algo,indiv, hideEtoC, rs = rs)
                     row.name = row.ID
 
-                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
                     c1.pyplot(fig)
                     G = indiv['G']
                     
@@ -365,7 +342,7 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                     df = pd.DataFrame.from_dict(dict(G.nodes(data=True)), orient='index')
                     df = df.drop(columns = ['pos','Type','Actif','Categorie'])
                     c3.dataframe(df, use_container_width=True)
-
+                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
 
             else :                    
                 colSt = st.columns(4) 
@@ -373,22 +350,19 @@ if (len(df1)>0) & (algo.ErrorParams !=2) :
                 for i in range(Range): 
                     row = dfSelect.iloc[i]
                     indiv = row.to_dict()                    
-                    fig = new_plot_2(algo,indiv, hideEtoC, rs = rs)
+                    fig = Plot_indiv(algo,indiv, hideEtoC, rs = rs)
                     row.name = row.ID
-                    # row.index.name = 'ID'
-                    colSt[idxcol].dataframe(row[Colexport].drop(['ID']).astype(str), use_container_width=True)
-
-                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
+                    colSt[idxcol].dataframe(row[Colexport].drop(['ID']).astype(str), use_container_width=True)                  
                     colSt[idxcol].pyplot(fig)
                     idxcol +=1
                     if idxcol > 3:
                         idxcol = 0
                         colSt = st.columns(4) 
+                    ListResultsExport.append({'row':row[Colexport], 'fig': fig})
 
             Empty.download_button(label ='📥 download results',
-                data = export_excel_test(algo, ListResultsExport),
-                file_name= 'results.xlsx') 
-            print(len(ListResultsExport))         
+                data = export_excel_report(algo, ListResultsExport),
+                file_name= 'results.xlsx')     
                   
 
 

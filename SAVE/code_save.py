@@ -20,6 +20,35 @@ with st.sidebar:
 #     data=pickle.dumps(vars(algo)),
 #     file_name="Save_{}.pickle".format(today)) 
 
+def Multiconnect_(algo,start, nodes):
+    G0 = algo.G0
+    d = algo.dfline2.set_index('ID').dist.to_dict()
+    idx = np.argmin([G0[start][n]['dist'] for n in nodes])
+    firstnode = nodes[idx]
+    G = algo.G0.subgraph(nodes).copy()
+    l = list(G.edges)
+    print(l)
+    l = pd.Series(l).str.join('-').tolist()
+    l = tuple(itertools.combinations(l, len(nodes) - 1))
+    l = np.array(l)
+    idx = np.vectorize(d.__getitem__)(l).sum(1).argmin()
+    lines = l[idx]
+    return [(start,firstnode)] + [tuple(l.split('-')) for l in lines]
+
+def PToT_path_2(algo):
+    # T cluster / P 
+
+    G0 = algo.G0
+    starts  = ['P{}'.format(t) for t in algo.Comb['P']]
+    targets = ['T{}'.format(t) for t in algo.Comb['T']]
+    DictCluster = Cluster_(algo, starts, targets)
+    PtoTConnect = {}
+    for p, Tlist in DictCluster.items():
+        if len(Tlist) > 2:
+            PtoTConnect[p] = Multiconnect_(algo,p, Tlist)  
+        else : 
+            PtoTConnect[p] = Bus_(algo, p, Tlist)
+    return PtoTConnect
 
 if mode == 'T0':
     Tlist = algo.CombNodes['T']
