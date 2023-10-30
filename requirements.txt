@@ -3,3 +3,4 @@ XlsxWriter
 matplotlib
 networkx
 streamlit
+plotly
